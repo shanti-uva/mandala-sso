@@ -100,34 +100,42 @@ for name, rwdata in new_users.items():
         ', '.join(rkeys),
         ', '.join(['%s' for rv in rvals])
     )
-    # if c == 0:
-    #     print(sql)
-    #     print("{}: {}".format(name, rvals))
     cursor.execute(sql, rvals)
     cnx.commit()
     c += 1
+
+# Adding back in the anonymous user (See http://drupal.org/node/1029506)
+cursor.execute("INSERT INTO users (name, pass, mail, theme, signature, language, init, timezone) VALUES ('', '', '', " 
+               "'', '', '', '', '')")
+cursor.execute("UPDATE users SET uid = 0 WHERE name = ''")
+cnx.commit()
 
 print("{} users added to {} database".format(c, outdbnm))
 
 print("Creating the `uidcorresp` table with correspondences to old uids and new ones")
 
-corresp_tbl_schema = "CREATE TABLE IF NOT EXISTS `uidcorresp` ( " \
+cursor.execute('DROP TABLE IF EXISTS uidcorresp')
+corresp_tbl_schema = "CREATE TABLE `uidcorresp` ( " \
   "`uid` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'Primary Key: the New Unique user ID.', \n" \
   "`name` varchar(60) NOT NULL DEFAULT '' COMMENT 'Unique user name.', \n" \
-  "`mail` varchar(254) DEFAULT '' COMMENT 'User’s e-mail address.', \n" \
-  "`avuid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old AV UID'," \
-  "`imguid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Images UID', \n" \
-  "`manuid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Mandala UID', \n" \
-  "`srcuid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Sorces UID', \n" \
-  "`txtuid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Texts UID', \n" \
-  "`visuid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Visuals UID', \n" \
-  "`created` int(11) NOT NULL DEFAULT '0' COMMENT 'Timestamp for when user was created', \n" \
+  "`mail` varchar(254) DEFAULT '' COMMENT 'User’s e-mail address.', \n"
+for site in SITES:
+    corresp_tbl_schema += "`{}_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT " \
+                          "'Old {} UID',".format(site, (site.replace("_", " ")).capitalize())
+
+# "`audio_video_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old AV UID'," \
+# "`images_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Images UID', \n" \
+# "`mandala_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Mandala UID', \n" \
+# "`sources_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Sorces UID', \n" \
+# "`texts_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Texts UID', \n" \
+# "`visuals_uid` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Old Visuals UID', \n" \
+
+corresp_tbl_schema +=  "`created` int(11) NOT NULL DEFAULT '0' COMMENT 'Timestamp for when user was created', \n" \
   "PRIMARY KEY (`uid`), \n" \
   "UNIQUE KEY `name` (`name`), \n" \
   "KEY `mail` (`mail`) \n" \
   ") ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Stores user id correspondences from old IDS to new one'"
 cursor.execute(corresp_tbl_schema)
-cursor.execute('TRUNCATE TABLE uidcorresp')
 
 ct = 0
 for nm, usr in users.items():
@@ -145,8 +153,11 @@ for nm, usr in users.items():
         sid = usr[site]['uid'] if site in usr else 0
         uidupdata.append(sid)
     uidupdata.append(int(time.time()))
-    sql = 'INSERT INTO uidcorresp (uid, name, mail, avuid, imguid, manuid, srcuid, txtuid, visuid, created) ' \
-           'VALUES ({})'.format(', '.join(['%s' for _ in range(len(uidupdata))]))
+    colstr = "(uid, name, mail, "
+    for site in SITES:
+        colstr += "{}_uid, ".format(site)
+    colstr += 'created)'
+    sql = 'INSERT INTO uidcorresp {} VALUES ({})'.format(colstr, ', '.join(['%s' for _ in range(len(uidupdata))]))
     res = cursor.execute(sql, uidupdata)
     cnx.commit()
 
