@@ -5,44 +5,39 @@ Relies on the `uidcorresp` table in the shared db created by mergeusers.py
 '''
 
 import mysql.connector
-
-SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')
-ENV = '_predev'
-SHARED_DB = 'shanti_predev'
+from common_func import *
 
 
-def resdict(crs):
-    newres = []
-    cols = crs.column_names
-    rows = crs.fetchall()
-    if len(cols) != len(rows[0]):
-        raise KeyError("The number of columns ({}) do not match the number of items in the " /
-                       "first row ({})".format(len(cols), len(rows[0])))
-    for rw in rows:
-        rwdict = {}
-        for n, cnm in enumerate(cols):
-            rwdict[cnm] = rw[n]
-        newres.append(rwdict)
-
-    return newres
-
-
-def getalluids(global_uid):
-    print(SHARED_DB)
-    mycnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
-    mycrs = mycnx.cursor()
-    mycrs.execute("select * from uidcorresp where uid={}".format(global_uid))
-    res = resdict(mycrs)
-    return res[0]
+def isauth(global_uid):
+    uids = getcorresps(global_uid)
+    if uids is None:
+        return False
+    for site in SITES:
+        db = "{}{}".format(site, ENV)
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycur = mycnx.cursor()
+        uidnm = "{}_uid".format(site)
+        mycur.execute("SELECT * FROM authmap WHERE uid={}".format(uids[uidnm]))
+        res = mycur.fetchone()
+        if res is not None:
+            if res[-1] == DEFAULT_AUTH or res[-1] == 'shib_auth':
+                return True
+    return False
 
 
-cnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
-cursor = cnx.cursor()
-cursor.execute('select * from users')
-users = resdict(cursor)
+# Main Program
 
+users = getallrows(SHARED_DB, 'users')
+
+truncatetable(SHARED_DB, 'authmap')
+
+print("Truncated Shared Authmap table!")
+
+ct = 0
 for usr in users:
-    if usr['name'] == 'ndg8f':
-        mycorr = getalluids(usr['uid'])
-        print(mycorr)
+    if isauth(usr['uid']):
+        doinsert(SHARED_DB, 'authmap', 'uid, authname, module', (usr['uid'], usr['name'], DEFAULT_AUTH))
+
+rows = getallrows(SHARED_DB, 'authmap')
+print("Repopulated Shared Authmap table with {} rows".format(len(rows)))
 
