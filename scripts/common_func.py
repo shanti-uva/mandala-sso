@@ -4,11 +4,12 @@ Common functions
 import mysql.connector
 
 # Constants
-SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')
-ENV = '_predev'
-SHARED_DB = 'shanti_predev'
-DEFAULT_AUTH = 'simplesamlphp_auth'
-DEFAULT_ROLES = [
+SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')  # all the resource sites in Drupal
+# TODO: Update ENV and SHARE_DB to work in the Acquia Cloud environment. The current set up is for DevDesktop.
+ENV = '_predev'                         # the current working environment
+SHARED_DB = 'shanti_predev'             # the destination database where the shared tables will reside
+DEFAULT_AUTH = 'simplesamlphp_auth'     # default type of authorization
+DEFAULT_ROLES = [                       # A list of tuples defining the new roles in the shared tables
     ('anonymous user', 1, 0),
     ('authenticated user', 2, 1),
     ('administrator', 3, 2),
@@ -16,11 +17,12 @@ DEFAULT_ROLES = [
     ('workflow editor', 5, 4),
     ('shanti editor', 6, 5)
 ]
-ROL_COLL_NAMES = ('name', 'rid', 'weight')
-ROLE_CORRS = {
+ROL_COLL_NAMES = ('name', 'rid', 'weight')  # The columns for the roles table
+ROLE_CORRS = {                              # The correspondences bet. individual sites' roles and the global roles
     'audio_video': {4: 4, 5: 6, 11: 5},
     'sources': {4: 4},
-    'visual': {4: 6}
+    'texts': {11: 4},
+    'visuals': {4: 6, 5: 4}
 }
 
 
@@ -33,7 +35,10 @@ def doquery(db, query, return_type='dict'):
     :param query: str
         the full query string (no semicolon)
     :param return_type: str
-        the type of return for each row, defaults to 'dict' for dictionary of column name, value pairs.
+        the type of return for each row, defaults to 'dict'
+            "dict" : returns a list of rows as dictionary of keys-value pairs, where keys are the column names
+            "val"  : returns a single value
+            ""     : returns a list of rows as tuples (the mysql default)
         Anything else returns the rows as the default mysql return type, tuples
     :return: list
         A list of result rows either as dictionaries or tuples
@@ -43,6 +48,14 @@ def doquery(db, query, return_type='dict'):
     mycrs.execute(query)
     if return_type == 'dict':
         return resdict(mycrs)
+    elif return_type == 'val':
+        res = mycrs.fetchone()
+        if res is None or len(res) == 0:
+            return False
+        else:
+            return res[0]
+    elif return_type == 'commit':
+        mycnx.commit()
     else:
         return mycrs.fetchall()
 
@@ -54,7 +67,7 @@ def doinsert(db, tbl, cols, vals):
         the database name
     :param tbl: str
         the name of the table
-    :param cols: list
+    :param cols: str or list
         the columns for which values are given
     :param vals: list
         the values for each column
@@ -73,6 +86,44 @@ def doinsert(db, tbl, cols, vals):
         ', '.join(['%s' for _ in vals])
     )
     mycrs.execute(sql, vals)
+    mycnx.commit()
+
+
+def doinsertmany(db, tbl, cols, vals):
+    """
+
+    :param db: str
+        database name
+    :param tbl: str
+        table nabme
+    :param cols: str or list
+        columns
+    :param vals: list
+        list of rows (tuples) to insert
+    :return: None
+    """
+    # Turn cols array into string surrounded by parentheses
+    if isinstance(cols, list):
+        cols = ', '.join(cols)
+    if cols[0] != '(':
+        cols = '(' + cols + ')'
+    cols = cols.replace("'", '')
+
+    # Create format string for values made of parentheses with %s for each item in row
+    fmtvals = "({})".format(', '.join(['%s' for _ in vals[0]]))
+
+    # Build query
+    qry = 'INSERT INTO {} {} VALUES {}'.format(
+        tbl,
+        cols,
+        fmtvals,
+    )
+    # print("query is: {}".format(qry))
+
+    # Connect to database and execute a multi row insert
+    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+    mycrs = mycnx.cursor()
+    mycrs.executemany(qry, vals)
     mycnx.commit()
 
 
@@ -157,6 +208,37 @@ def getfirstrow(crs):
         return None
 
 
+def loaduser(uid, site=SHARED_DB):
+    """
+    Load a user from the selected site
+    :param uid: int or str
+        The user id to load or user name
+    :param site: str
+        The site db to search. Defaults to the shared db / global users table
+    :return: dict
+        The row representing that user's record or None if not found
+    """
+    qry = ''
+    try:
+        db = site if site == SHARED_DB else "{}{}".format(site, ENV)
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        cond = 'uid={}'.format(uid) if isinstance(uid, int) else 'name="{}"'.format(uid)
+        qry = "SELECT * FROM users WHERE {}".format(cond)
+        mycrs.execute(qry)
+        return getfirstrow(mycrs)
+    except mysql.connector.errors.ProgrammingError as pe:
+        print("errorr: {}".format(qry))
+
+
+def loadalluserinfo(uid):
+    uinfo = loaduser(uid)
+    corrs = getcorresps(uid)
+    for site in SITES:
+        uinfo["{}_user".format(site)] = loaduser(corrs["{}_uid".format(site)], site)
+    return uinfo
+
+
 def resdict(crs):
     """
     Covert a python mysql query cursors' results into a dictionary
@@ -178,6 +260,26 @@ def resdict(crs):
             newres.append(rwdict)
 
     return newres
+
+
+def translaterole(site, rid):
+    """
+    Translate a specific site role id into global role id using the ROLE_CORRS constant
+    :param site: str
+        machine name of the site
+    :param rid: int
+        the role id
+    :return: int
+        the corresponding global role id or -1 if not found
+    """
+    try:
+        if site in ROLE_CORRS:
+            return ROLE_CORRS[site][rid]
+        else:
+            return -1
+
+    except KeyError as ke:
+        print("{} | {}".format(site, rid))
 
 
 def truncatetable(db, tbl):
