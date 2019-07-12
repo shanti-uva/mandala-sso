@@ -97,10 +97,18 @@ def check_usr_authmap_across_sites(uid):
                 print("{} ({})\t{}\t{}".format(susr['name'], susr['uid'], susr['mail'], am))
 
 
+def find_email_globally(emailpt):
+    for site in SITES:
+        db = "{}{}".format(site, ENV)
+        qry = "SELECT * FROM users WHERE mail LIKE '%{}%'".format(emailpt)
+        # print(db, qry)
+        res = doquery(db, qry)
+        if res is not None:
+            print(site, res)
+
+
 if __name__ == '__main__':
-    #verify_one_corresp(429)
-    # verify_all_corresp()
-    for uid in (17, 41, 155, 578, 650):
-        check_usr_authmap_across_sites(uid)
-        print(" ")
+    find_email_globally('vef6db')
+    corrs = getcorrespsbysite('audio_video', 2796)
+    print(corrs)
 

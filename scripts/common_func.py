@@ -48,6 +48,9 @@ def doquery(db, query, return_type='dict'):
     mycrs.execute(query)
     if return_type == 'dict':
         return resdict(mycrs)
+    elif return_type == 'list':
+        res = [item[0] for item in mycrs.fetchall()]
+        return res
     elif return_type == 'val':
         res = mycrs.fetchone()
         if res is None or len(res) == 0:
@@ -177,6 +180,19 @@ def getcorresps(global_uid):
     return getfirstrow(mycrs)
 
 
+def getcorrespsbysite(site, suid):
+    """
+    Get correspondences for user on a specific site
+    :param site:
+    :param suid:
+    :return:
+    """
+    qry = "SELECT * from uidcorresp where {}_uid={}".format(site, suid)
+    res = doquery(SHARED_DB, qry)
+    print(type(res))
+    return res
+
+
 def getallrows(db, tbl):
     """
     Gets all rows from a database table
@@ -206,6 +222,14 @@ def getfirstrow(crs):
         return res[0]
     else:
         return None
+
+
+def getalluids(db=SHARED_DB):
+    if ENV not in db:
+        db = "{}{}".format(db, ENV)
+    qry = "SELECT uid from users"
+    res = doquery(db, qry, 'list')
+    return res
 
 
 def loaduser(uid, site=SHARED_DB):
@@ -294,4 +318,37 @@ def truncatetable(db, tbl):
     mycnx = mysql.connector.connect(user='root', port=33067, database=db)
     mycrs = mycnx.cursor()
     mycrs.execute('TRUNCATE TABLE {}'.format(tbl))
+
+
+def unbyte(obj):
+    """
+    Function to turn a byte based object into a string based object since unserialized blobs return the former
+    For use with dictionaries primarily
+
+    :param obj:
+    :return:
+    """
+    if isinstance(obj, bytes):
+        return obj.decode('utf-8')
+
+    elif isinstance(obj, list):
+        newlist = []
+        for bitem in obj:
+            newlist.append(unbyte(bitem))
+        return newlist
+
+    elif isinstance(obj, dict):
+        newdict = {}
+        for k,v in obj.items():
+            nk = unbyte(k)
+            nv = unbyte(v)
+            newdict[nk] = nv
+        return newdict
+
+    elif isinstance(obj, int) or obj is None or isinstance(obj, bool):
+        return obj
+
+    else:
+        print("Unknown type of object. {} is a {}".format(obj, type(obj)))
+        return obj
 

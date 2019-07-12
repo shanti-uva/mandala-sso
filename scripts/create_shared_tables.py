@@ -10,6 +10,8 @@ import time
 from common_func import *
 import pandas as pd
 from pprint import PrettyPrinter
+import phpserialize as php
+import json
 
 pd.set_option('display.max_rows', 200)
 pp = PrettyPrinter(indent=2)
@@ -306,6 +308,53 @@ def concat_users_roles():
     doinsertmany(SHARED_DB, 'users_roles', 'uid,rid', user_roles_rows)
 
 
+def merge_user_names():
+    """
+    Create a merged table of users first and last names to use on all sites
+    :return:
+    """
+    pass
+
+
+def get_user_names(guid):
+    results = {}
+    uidcorrs = getcorresps(guid)
+    try:
+        for site in SITES:
+            print(site)
+            if site in ('audio_video', 'mandala'):
+                continue
+            uid = uidcorrs["{}_uid".format(site)]
+            if uid > 0:
+                field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
+                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+                fname = doquery("{}{}".format(site, ENV), qry, 'val')
+                field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
+                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+                lname = doquery("{}{}".format(site, ENV), qry, 'val')
+                if lname:
+                    results[site] = {'first': fname, 'last': lname}
+    except KeyError as ke:
+        print(ke)
+
+    fname = ''
+    lname = ''
+    ct = 0
+    is_diff = False
+    for site, nmpts in results.items():
+        if ct == 0:
+            fname = nmpts['first']
+            lname = nmpts['last']
+        else:
+            if fname != nmpts['first'] or lname != nmpts['last']:
+                is_diff = True
+
+    if is_diff:
+        return results
+    else:
+        return fname, lname
+
+
 def clean_up():
     """
     General clean up after the merging/update is complete
@@ -327,9 +376,12 @@ def merge_all_tables(db=SHARED_DB):
     merge_users(db)
     concat_authmap()
     merge_roles()
-
     clean_up()
 
 
 if __name__ == '__main__':
-    concat_authmap()
+    alluid = getalluids()
+    print("{}, {}".format(type(alluid), len(alluid)))
+    res = get_user_names(alluid[104])
+    print(res)
+
