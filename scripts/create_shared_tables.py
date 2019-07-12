@@ -319,38 +319,38 @@ def merge_user_names():
 def get_user_names(guid):
     results = {}
     uidcorrs = getcorresps(guid)
-    try:
-        for site in SITES:
-            print(site)
-            if site in ('audio_video', 'mandala'):
-                continue
-            uid = uidcorrs["{}_uid".format(site)]
-            if uid > 0:
-                field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
-                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-                fname = doquery("{}{}".format(site, ENV), qry, 'val')
-                field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
-                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-                lname = doquery("{}{}".format(site, ENV), qry, 'val')
-                if lname:
-                    results[site] = {'first': fname, 'last': lname}
-    except KeyError as ke:
-        print(ke)
-
+    if not uidcorrs:
+        return False
+    for site in SITES:
+        if site in ('audio_video', 'mandala'):
+            continue
+        uid = uidcorrs["{}_uid".format(site)]
+        if uid > 0:
+            field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
+            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+            fname = doquery("{}{}".format(site, ENV), qry, 'val')
+            field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
+            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+            lname = doquery("{}{}".format(site, ENV), qry, 'val')
+            if lname:
+                results[site] = {'first': fname, 'last': lname}
     fname = ''
     lname = ''
-    ct = 0
+    myct = 0
     is_diff = False
     for site, nmpts in results.items():
-        if ct == 0:
+        if myct == 0:
             fname = nmpts['first']
             lname = nmpts['last']
         else:
             if fname != nmpts['first'] or lname != nmpts['last']:
                 is_diff = True
+        myct += 1
 
     if is_diff:
         return results
+    elif fname == '' and lname == '':
+        return False
     else:
         return fname, lname
 
@@ -381,7 +381,12 @@ def merge_all_tables(db=SHARED_DB):
 
 if __name__ == '__main__':
     alluid = getalluids()
-    print("{}, {}".format(type(alluid), len(alluid)))
-    res = get_user_names(alluid[104])
-    print(res)
+    ct = 0
+    for uid in alluid:
+        res = get_user_names(uid)
+        if res:
+            print(res)
+            ct += 1
+
+    print("{} with names out of {} total".format(ct, len(alluid)))
 
