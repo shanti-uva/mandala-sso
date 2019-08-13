@@ -308,113 +308,6 @@ def concat_users_roles():
     doinsertmany(SHARED_DB, 'users_roles', 'uid,rid', user_roles_rows)
 
 
-def merge_user_names():
-    """
-    Create a merged table of users first and last names to use on all sites
-    Need to create these fields on the default site: field_first_name and field_last_name
-
-    :return:
-    """
-    pout("Merging user name field values into fields on default site \n\t\t", 2)
-    name_tables = (
-        'field_data_field_first_name',
-        'field_data_field_last_name',
-        'field_revision_field_first_name',
-        'field_revision_field_last_name'
-    )
-    guids = getalluids()
-    ct = 0
-    insct = 0
-    notfound = []
-    for guid in guids:
-        ct += 1
-        if ct % 100 == 0:
-            pref = "\t" if ct == 100 else ""
-            print("{}{} ... ".format(pref, ct), end='')
-        unm = get_user_names(guid)
-        if not unm or len(unm) < 2:
-            notfound.append(guid)
-            continue
-
-        row = None
-        if isinstance(unm, tuple):
-            row = (guid, unm[0], unm[1])
-        elif isinstance(unm, dict):
-            ky1 = list(unm.keys())[0]
-            nmtup = unm[ky1]
-            row = (guid, nmtup['first'], nmtup['last'])
-        if row is None:
-            notfound.append(guid)
-
-        if row is not None:
-            # Row to first name table
-            # first and last name tables have
-            # 'user','user','0','151','151','und','0','Raf',NULL
-            base_cols = ('entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta')
-            for tbl in name_tables:
-                fnm = tbl.replace('field_data_', '').replace('field_revision_', '')
-                cols = base_cols + ("{}_value".format(fnm), "{}_format".format(fnm))
-                ind = 1 if 'first' in fnm else 2
-                vals = ('user', 'user', '0', str(row[0]), str(row[0]), 'und', '0', row[ind], None)
-                doinsert(SHARED_DB, tbl, cols, vals)
-            insct += 1
-
-    print("\n")
-    pout("{} name fields inserted".format(insct), 2)
-    print("Users Without Name:")
-    print(notfound)
-
-
-def get_user_names(guid):
-    results = {}
-    uidcorrs = getcorresps(guid)
-    if not uidcorrs:
-        return False
-    for site in SITES:
-        if site in ('audio_video', 'mandala'):
-            continue
-        uid = uidcorrs["{}_uid".format(site)]
-        if uid > 0:
-            field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
-            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-            fname = doquery("{}{}".format(site, ENV), qry, 'val')
-            field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
-            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-            lname = doquery("{}{}".format(site, ENV), qry, 'val')
-            if lname:
-                results[site] = {'first': fname, 'last': lname}
-    fname = ''
-    lname = ''
-    myct = 0
-    is_diff = False
-    for site, nmpts in results.items():
-        if myct == 0:
-            fname = nmpts['first']
-            lname = nmpts['last']
-        else:
-            if fname != nmpts['first'] or lname != nmpts['last']:
-                is_diff = True
-        myct += 1
-
-    if is_diff:
-        return results
-    elif fname == '' and lname == '':
-        return False
-    else:
-        return fname, lname
-
-
-def get_ldap_names(guid):
-    pass
-
-
-def combine_realnames():
-    """
-    Need to do this....
-    :return:
-    """
-    pass
-
 
 def clean_up():
     """
@@ -445,10 +338,6 @@ def merge_all_tables(db=SHARED_DB):
     pout("Combining Real Name Tables")
     combine_realnames()
     clean_up()
-
-
-def pout(str, lvl=1):
-    print("{}{}".format("\t" * (lvl - 1), str))
 
 
 if __name__ == '__main__':

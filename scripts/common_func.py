@@ -267,6 +267,10 @@ def loadalluserinfo(uid):
     return uinfo
 
 
+def pout(str, lvl=1):
+    print("{}{}".format("\t" * (lvl - 1), str))
+
+
 def resdict(crs, limit_rows=-1):
     """
     Covert a python mysql query cursors' results into a dictionary
@@ -282,7 +286,7 @@ def resdict(crs, limit_rows=-1):
     else:
         rows = crs.fetchall()
     # print(rows)
-    if len(rows) > 0:
+    if rows and len(rows) > 0:
         if len(cols) != len(rows[0]):
             raise KeyError("The number of columns ({}) do not match the number of items in the " /
                            "first row ({})".format(len(cols), len(rows[0])))
