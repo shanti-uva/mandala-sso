@@ -59,21 +59,24 @@ if __name__ == "__main__":
     # print("{}".format(len(uids)))
 
     unms = load_unames()
-    gufnms = {}
+    uvunms = []
     ct = 0
+    print("Finding usr names: ")
     for unmstr in unms:
-        if ct > 10:
-            break
         guid, uvanm = unmstr.split('|')
         firstnm, lastnm = get_full_name('uid', uvanm)
         if firstnm is not None:
-            print(firstnm, lastnm)
+            uvunms.append("{} {}".format(firstnm, lastnm))
+            print(".", end="")
             ct += 1
-            if ct > 10:
-                exit(0)
+            if ct % 50 == 0:
+                print(" ")
 
-        if lastnm is not None:
-            add_name_field('last', guid, lastnm)
+    print("\n")
+    print("{} names found".format(len(uvunms)))
 
-        if firstnm is not None:
-            add_name_field('first', guid, firstnm)
+        # if lastnm is not None:
+        #     add_name_field('last', guid, lastnm)
+        #
+        # if firstnm is not None:
+        #     add_name_field('first', guid, firstnm)
