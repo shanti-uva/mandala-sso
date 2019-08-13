@@ -22,7 +22,7 @@ def compile_user_list(keycol):
     for site in SITES:
         db = "{}{}".format(site, ENV)
         site_users = getallrows(db, 'users')
-        print("{} : {}".format(site, len(site_users)))
+        pout("{} : {}".format(site, len(site_users)), 2)
         for usr in site_users:
             if not usr[keycol] in users:
                 users[usr[keycol]] = {}
@@ -51,7 +51,7 @@ def merge_users(outdbnm=SHARED_DB):
     #           ... etc ...
     #    }
 
-    print("Compiling user list ....")
+    pout("Compiling user list ....", 2)
     compiled_users = compile_user_list(keycol)
 
     # Special cases: for particular people (user names) use a specific site for the user info
@@ -125,7 +125,7 @@ def merge_users(outdbnm=SHARED_DB):
         compiled_users[ukey]['newuid'] = uid  # for writing correspondences later. No longer necessary?
 
     # Add rows to the new database using the new_users dictionary
-    print("Writing users to {}’s user table".format(outdbnm))
+    pout("Writing users to {}’s user table".format(outdbnm))
     truncatetable(outdbnm, 'users')  # Truncate and existing user info
     c = 0
     for name, rwdata in new_users.items():
@@ -148,10 +148,10 @@ def merge_users(outdbnm=SHARED_DB):
     doquery(outdbnm, insert_anon_qry, "commit")
     doquery(outdbnm, "UPDATE users SET uid = 0 WHERE name = ''", "commit")
 
-    print("{} users added to {} database".format(c, outdbnm))
+    pout("{} users added to {} database".format(c, outdbnm), 2)
 
     # Create the uidcorresp table with correspondences
-    print("Creating the `uidcorresp` table with correspondences to old uids and new ones")
+    pout("Creating the `uidcorresp` table with correspondences to old uids and new ones", 2)
     create_corresp_table()  # create the table in the db
 
     # Create the fields/column string (colstr) for the inserts
@@ -239,13 +239,13 @@ def concat_authmap():
     :return: None
     """
     users = getallrows(SHARED_DB, 'users')
-    print("Truncated Shared Authmap table!")
+    pout("Truncated Shared Authmap table!", 2)
     truncatetable(SHARED_DB, 'authmap')
     for usr in users:
         if isauth(usr['uid']):
             doinsert(SHARED_DB, 'authmap', 'uid, authname, module', (usr['uid'], usr['name'], DEFAULT_AUTH))
     rows = getallrows(SHARED_DB, 'authmap')
-    print("Repopulated Shared Authmap table with {} rows".format(len(rows)))
+    pout("Repopulated Shared Authmap table with {} rows".format(len(rows)), 2)
 
 
 def merge_roles():
@@ -269,19 +269,19 @@ def concat_users_roles():
     :return: None
     """
     users = getallrows(SHARED_DB, 'users')
-    print("there are {} users".format(len(users)))
+    pout("there are {} users".format(len(users)), 2)
     print("truncating current users_roles....")
     truncatetable(SHARED_DB, 'users_roles')
     ct = 0
-    print("determining new roles for each user...")
+    pout("determining new roles for each user...", 2)
     user_roles_rows = []
     for usr in users:
         ct += 1
         uid = usr['uid']
         corrs = getcorresps(uid)
         if uid == 429:
-            print("{} 429 corresps:".format(usr['name']))
-            print(corrs)
+            pout("{} 429 corresps:".format(usr['name']), 2)
+            pout(corrs, 2)
         if corrs is None:
             continue
         newrole = 1
@@ -290,10 +290,10 @@ def concat_users_roles():
             suid = corrs[key]
             qry = "SELECT rid FROM users_roles WHERE uid={}".format(suid)
             if uid == 429:
-                print(qry)
+                pout(qry, 2)
             srole = doquery("{}{}".format(site, ENV), qry, 'val')
             if uid == 429:
-                print("{}: {}".format(site, srole))
+                pout("{}: {}".format(site, srole), 2)
             if srole == 3:
                 newrole = 3
                 break
@@ -302,7 +302,7 @@ def concat_users_roles():
                 if srole and srole > newrole:
                     newrole = srole
         if uid == 429:
-            print("role is: {}".format(newrole))
+            pout("role is: {}".format(newrole), 2)
         if newrole > 2:
             user_roles_rows.append([uid, newrole])
     doinsertmany(SHARED_DB, 'users_roles', 'uid,rid', user_roles_rows)
@@ -311,9 +311,58 @@ def concat_users_roles():
 def merge_user_names():
     """
     Create a merged table of users first and last names to use on all sites
+    Need to create these fields on the default site: field_first_name and field_last_name
+
     :return:
     """
-    pass
+    pout("Merging user name field values into fields on default site \n\t\t", 2)
+    name_tables = (
+        'field_data_field_first_name',
+        'field_data_field_last_name',
+        'field_revision_field_first_name',
+        'field_revision_field_last_name'
+    )
+    guids = getalluids()
+    ct = 0
+    insct = 0
+    notfound = []
+    for guid in guids:
+        ct += 1
+        if ct % 100 == 0:
+            pref = "\t" if ct == 100 else ""
+            print("{}{} ... ".format(pref, ct), end='')
+        unm = get_user_names(guid)
+        if not unm or len(unm) < 2:
+            notfound.append(guid)
+            continue
+
+        row = None
+        if isinstance(unm, tuple):
+            row = (guid, unm[0], unm[1])
+        elif isinstance(unm, dict):
+            ky1 = list(unm.keys())[0]
+            nmtup = unm[ky1]
+            row = (guid, nmtup['first'], nmtup['last'])
+        if row is None:
+            notfound.append(guid)
+
+        if row is not None:
+            # Row to first name table
+            # first and last name tables have
+            # 'user','user','0','151','151','und','0','Raf',NULL
+            base_cols = ('entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta')
+            for tbl in name_tables:
+                fnm = tbl.replace('field_data_', '').replace('field_revision_', '')
+                cols = base_cols + ("{}_value".format(fnm), "{}_format".format(fnm))
+                ind = 1 if 'first' in fnm else 2
+                vals = ('user', 'user', '0', str(row[0]), str(row[0]), 'und', '0', row[ind], None)
+                doinsert(SHARED_DB, tbl, cols, vals)
+            insct += 1
+
+    print("\n")
+    pout("{} name fields inserted".format(insct), 2)
+    print("Users Without Name:")
+    print(notfound)
 
 
 def get_user_names(guid):
@@ -355,6 +404,18 @@ def get_user_names(guid):
         return fname, lname
 
 
+def get_ldap_names(guid):
+    pass
+
+
+def combine_realnames():
+    """
+    Need to do this....
+    :return:
+    """
+    pass
+
+
 def clean_up():
     """
     General clean up after the merging/update is complete
@@ -373,20 +434,29 @@ def merge_all_tables(db=SHARED_DB):
         name of the global database (default to the shared db)
     :return: None
     """
+    pout("Merging Users ....")
     merge_users(db)
+    pout("Concatenating Authmap Table ....")
     concat_authmap()
+    pout("Merging roles ...")
     merge_roles()
+    pout("Concatenating Users Roles Table ....")
+    concat_users_roles()
+    pout("Combining Real Name Tables")
+    combine_realnames()
     clean_up()
 
 
+def pout(str, lvl=1):
+    print("{}{}".format("\t" * (lvl - 1), str))
+
+
 if __name__ == '__main__':
-    alluid = getalluids()
-    ct = 0
-    for uid in alluid:
-        res = get_user_names(uid)
-        if res:
-            print(res)
-            ct += 1
+    # pout("Merging all tables for PREDEV using the default db as the shared one.")
+    # merge_all_tables()
 
-    print("{} with names out of {} total".format(ct, len(alluid)))
+    # pout("Concatenating Users Roles Table ....")
+    # concat_users_roles()
 
+    pout("Testing merge user names ...")
+    merge_user_names()

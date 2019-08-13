@@ -108,7 +108,8 @@ def find_email_globally(emailpt):
 
 
 if __name__ == '__main__':
-    find_email_globally('vef6db')
-    corrs = getcorrespsbysite('audio_video', 2796)
+    find_email_globally('vck6mg')
+    corrs = getcorrespsbysite('audio_video', 312)
     print(corrs)
+    verify_all_corresp()
 

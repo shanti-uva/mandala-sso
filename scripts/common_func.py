@@ -76,7 +76,8 @@ def doinsert(db, tbl, cols, vals):
         the values for each column
     :return: None
     """
-    if isinstance(cols, list):
+    if isinstance(cols, list) or isinstance(cols, tuple):
+        cols = list(map(lambda x: str(x), list(cols)))  # convert whatever is given into an list of strings
         cols = ', '.join(cols)
     if cols[0] != '(':
         cols = '(' + cols + ')'
@@ -189,7 +190,6 @@ def getcorrespsbysite(site, suid):
     """
     qry = "SELECT * from uidcorresp where {}_uid={}".format(site, suid)
     res = doquery(SHARED_DB, qry)
-    print(type(res))
     return res
 
 
@@ -203,10 +203,13 @@ def getallrows(db, tbl):
     :return: list of dictionaries
         a list of dictionaries for each row
     """
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.execute("SELECT * FROM {}".format(tbl))
-    return resdict(mycrs)
+    if tableexists(db, tbl):
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.execute("SELECT * FROM {}".format(tbl))
+        return resdict(mycrs)
+    else:
+        return {}
 
 
 def getfirstrow(crs):
@@ -217,7 +220,7 @@ def getfirstrow(crs):
     :return: tuple
         the first row of results from the cursor object
     """
-    res = resdict(crs)
+    res = resdict(crs, 1)
     if len(res) > 0:
         return res[0]
     else:
@@ -247,10 +250,11 @@ def loaduser(uid, site=SHARED_DB):
         db = site if site == SHARED_DB else "{}{}".format(site, ENV)
         mycnx = mysql.connector.connect(user='root', port=33067, database=db)
         mycrs = mycnx.cursor()
-        cond = 'uid={}'.format(uid) if isinstance(uid, int) else 'name="{}"'.format(uid)
+        cond = 'uid={}'.format(uid) if isinstance(uid, int) or uid.isnumeric() else 'name="{}"'.format(uid)
         qry = "SELECT * FROM users WHERE {}".format(cond)
         mycrs.execute(qry)
-        return getfirstrow(mycrs)
+        fr = getfirstrow(mycrs)
+        return fr
     except mysql.connector.errors.ProgrammingError as pe:
         print("errorr: {}".format(qry))
 
@@ -263,7 +267,7 @@ def loadalluserinfo(uid):
     return uinfo
 
 
-def resdict(crs):
+def resdict(crs, limit_rows=-1):
     """
     Covert a python mysql query cursors' results into a dictionary
     :param crs: mysql.connector.cursor_cext.CMySQLCursor
@@ -272,7 +276,12 @@ def resdict(crs):
     """
     newres = []
     cols = crs.column_names
-    rows = crs.fetchall()
+    if limit_rows == 1:
+        row = crs.fetchone()
+        rows = [row]
+    else:
+        rows = crs.fetchall()
+    # print(rows)
     if len(rows) > 0:
         if len(cols) != len(rows[0]):
             raise KeyError("The number of columns ({}) do not match the number of items in the " /
@@ -284,6 +293,15 @@ def resdict(crs):
             newres.append(rwdict)
 
     return newres
+
+
+def tableexists(db, tbl):
+    qry = "SHOW TABLES LIKE '{}'".format(tbl);
+    res = doquery(db, qry, 'val')
+    if res == tbl:
+        return True
+    else:
+        return False
 
 
 def translaterole(site, rid):
@@ -351,4 +369,3 @@ def unbyte(obj):
     else:
         print("Unknown type of object. {} is a {}".format(obj, type(obj)))
         return obj
-

@@ -1,0 +1,5 @@
+use shanti_predev;
+truncate field_data_field_first_name;
+truncate field_data_field_last_name;
+truncate field_revision_field_first_name;
+truncate field_revision_field_last_name;
