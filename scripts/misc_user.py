@@ -2,7 +2,17 @@ from os import system, getcwd, remove
 from common_func import *
 
 
-def add_name_field(tbl, uid, nms):
+def add_first_name(guid, fn):
+    add_name_field('field_data_field_first_name', guid, fn)
+    add_name_field('field_revision_field_first_name', guid, fn)
+
+
+def add_last_name(guid, fn):
+    add_name_field('field_data_field_last_name', guid, fn)
+    add_name_field('field_revision_field_last_name', guid, fn)
+
+
+def add_name_field(tbl, uid, nm):
     """
     Insert a first or last name field in the global user name fields
     First and last name tables have the following columns:
@@ -10,27 +20,20 @@ def add_name_field(tbl, uid, nms):
 
     :param tbl:
     :param uid:
-    :param nms:
+    :param nm:
     :return:
     """
     base_cols = ('entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta')
     fnm = tbl.replace('field_data_', '').replace('field_revision_', '')
     cols = base_cols + ("{}_value".format(fnm), "{}_format".format(fnm))
-    ind = 0 if 'first' in fnm else 1
-    vals = ('user', 'user', '0', str(uid), str(uid), 'und', '0', nms[ind], None)
+    vals = ('user', 'user', '0', str(uid), str(uid), 'und', '0', nm, None)
     doinsert(SHARED_DB, tbl, cols, vals)
-
-
-def combine_realnames():
-    """
-    Need to do this....
-    :return:
-    """
-    pass
 
 
 def do_uid_full_names():
     """
+    Using the data file uvaids_no_name.dat which has lines of uid|uvaid, e.g. 6|mvp5a, make the call to LDAP and
+    see if they have an entry. Use that to return a list of tuples (guid, first name, last name)
 
     :return:
     """
@@ -40,21 +43,29 @@ def do_uid_full_names():
             ln = ln.strip()
             unms.append(ln)
 
-    uvunms = []
+    uvanms = []
     ct = 0
-    print("Finding usr names: ")
+    pout("Finding usr names: ", 2)
+    print("\t\t", end='')
     for unmstr in unms:
         guid, uvanm = unmstr.split('|')
         firstnm, lastnm = get_full_name('uid', uvanm)
         if firstnm is not None:
-            uvunms.append("{} {}".format(firstnm, lastnm))
+            nmtup = (guid, firstnm, lastnm)
+            uvanms.append(nmtup)
             print(".", end="")
             ct += 1
-            if ct % 50 == 0:
+            if ct % 100 == 0:
                 print(" ")
+                print("\t\t", end='')
 
     print("\n")
-    print("{} names found".format(len(uvunms)))
+    pout("{} names found".format(len(uvanms)), 2)
+    pout("Adding to global name tables ....", 2)
+    for uvanm in uvanms:
+        add_first_name(uvanm[0], uvanm[1])
+        add_last_name(uvanm[0], uvanm[2])
+    pout("New names added!", 2)
 
 
 def get_full_name(fld, val):
@@ -165,12 +176,6 @@ def merge_user_names():
     :return:
     """
     pout("Merging user name field values into fields on default site \n\t\t", 2)
-    name_tables = (
-        'field_data_field_first_name',
-        'field_data_field_last_name',
-        'field_revision_field_first_name',
-        'field_revision_field_last_name'
-    )
     guids = getalluids()
     ct = 0
     insct = 0
@@ -199,8 +204,8 @@ def merge_user_names():
 
         if row is not None:
             # Add row to all the name tables
-            for tbl in name_tables:
-                add_name_field(tbl, row[0], row[1:])
+            add_first_name(row[0], row[1])
+            add_last_name(row[0], row[2])
             insct += 1
 
     print("\n")
@@ -212,8 +217,18 @@ def merge_user_names():
             dataout.write("{}\n".format(nf))
 
 
-if __name__ == "__main__":
-    # get_noname_uids()
+def populate_global_name_fields():
+    """
+    Runs all relevant tasks in order to populate the name fields on the global/default db
+    The name fields must be created on the default DB first
+
+    :return:
+    """
     merge_user_names()
+    get_noname_uids()
+    do_uid_full_names()
+
+
+if __name__ == "__main__":
 
     print("done!")
