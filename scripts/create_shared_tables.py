@@ -289,11 +289,7 @@ def concat_users_roles():
             key = "{}_uid".format(site)
             suid = corrs[key]
             qry = "SELECT rid FROM users_roles WHERE uid={}".format(suid)
-            if uid == 429:
-                pout(qry, 2)
             srole = doquery("{}{}".format(site, ENV), qry, 'val')
-            if uid == 429:
-                pout("{}: {}".format(site, srole), 2)
             if srole == 3:
                 newrole = 3
                 break
@@ -301,12 +297,9 @@ def concat_users_roles():
                 srole = translaterole(site, srole)
                 if srole and srole > newrole:
                     newrole = srole
-        if uid == 429:
-            pout("role is: {}".format(newrole), 2)
         if newrole > 2:
             user_roles_rows.append([uid, newrole])
     doinsertmany(SHARED_DB, 'users_roles', 'uid,rid', user_roles_rows)
-
 
 
 def clean_up():
@@ -335,17 +328,10 @@ def merge_all_tables(db=SHARED_DB):
     merge_roles()
     pout("Concatenating Users Roles Table ....")
     concat_users_roles()
-    pout("Combining Real Name Tables")
-    combine_realnames()
     clean_up()
 
 
 if __name__ == '__main__':
     # pout("Merging all tables for PREDEV using the default db as the shared one.")
-    # merge_all_tables()
+    merge_all_tables()
 
-    # pout("Concatenating Users Roles Table ....")
-    # concat_users_roles()
-
-    pout("Testing merge user names ...")
-    merge_user_names()

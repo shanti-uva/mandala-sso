@@ -224,11 +224,15 @@ def populate_global_name_fields():
 
     :return:
     """
+    pout("Merging user names", 2)
     merge_user_names()
+    pout("Getting uvaids for users without names", 2)
     get_noname_uids()
+    pout("Looking for names in LDAP (Must be on VPN!)", 2)
     do_uid_full_names()
 
 
 if __name__ == "__main__":
-
-    print("done!")
+    pout("Processing user names", 1)
+    populate_global_name_fields()
+    print("Done!")

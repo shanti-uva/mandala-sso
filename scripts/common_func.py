@@ -159,9 +159,10 @@ def find_uid(site, suid, rettype='int'):
     """
     mycnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
     mycrs = mycnx.cursor()
-    mycrs.execute('SELECT * FROM users WHERE {}_uid=\'{}\''.format(site, suid))
+    mycrs.execute('SELECT * FROM uidcorresp WHERE {}_uid=\'{}\''.format(site, suid))
     rw = getfirstrow(mycrs)
-    if rettype == "int":
+
+    if rw is not None and rettype == "int":
         return rw['uid']
     else:
         return rw
@@ -377,3 +378,12 @@ def unbyte(obj):
     else:
         print("Unknown type of object. {} is a {}".format(obj, type(obj)))
         return obj
+
+
+def update_single_col(db, tbl, set, cond):
+    update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, set, cond)
+    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+    mycrs = mycnx.cursor()
+    mycrs.execute(update_qry)
+    mycnx.commit()
+
