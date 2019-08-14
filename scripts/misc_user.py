@@ -2,36 +2,69 @@ from os import system, getcwd, remove
 from common_func import *
 
 
-def load_uids():
-    myuids = []
-    with open('../data/guids_no_name.dat', 'r') as datain:
+def add_name_field(tbl, uid, nms):
+    """
+    Insert a first or last name field in the global user name fields
+    First and last name tables have the following columns:
+        'entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta', 'field_name_value', 'field_name_format'
+
+    :param tbl:
+    :param uid:
+    :param nms:
+    :return:
+    """
+    base_cols = ('entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta')
+    fnm = tbl.replace('field_data_', '').replace('field_revision_', '')
+    cols = base_cols + ("{}_value".format(fnm), "{}_format".format(fnm))
+    ind = 0 if 'first' in fnm else 1
+    vals = ('user', 'user', '0', str(uid), str(uid), 'und', '0', nms[ind], None)
+    doinsert(SHARED_DB, tbl, cols, vals)
+
+
+def combine_realnames():
+    """
+    Need to do this....
+    :return:
+    """
+    pass
+
+
+def do_uid_full_names():
+    """
+
+    :return:
+    """
+    unms = []
+    with open('../data/uvaids_no_name.dat', 'r') as datain:
         for ln in datain:
             ln = ln.strip()
-            if not isinstance(ln, int) and ln.isnumeric:
-                ln = int(ln)
-            myuids.append(ln)
+            unms.append(ln)
 
-    myuids.sort()
-    return myuids
+    uvunms = []
+    ct = 0
+    print("Finding usr names: ")
+    for unmstr in unms:
+        guid, uvanm = unmstr.split('|')
+        firstnm, lastnm = get_full_name('uid', uvanm)
+        if firstnm is not None:
+            uvunms.append("{} {}".format(firstnm, lastnm))
+            print(".", end="")
+            ct += 1
+            if ct % 50 == 0:
+                print(" ")
 
-
-def load_unames():
-    myunames = []
-    with open('../data/uvaids-nonames.dat', 'r') as datain:
-        for ln in datain:
-            ln = ln.strip()
-            myunames.append(ln)
-
-    myunames.sort()
-    return myunames
-
-
-def get_user_name(auid):
-    usr = loaduser(auid)
-    return usr['name']
+    print("\n")
+    print("{} names found".format(len(uvunms)))
 
 
 def get_full_name(fld, val):
+    """
+    Use LDAP call to UVA to find out user's first and last name from their UVA computing ID
+
+    :param fld:
+    :param val:
+    :return:
+    """
     tmpfile = '../tempout.tmp'
     ldap_cmd = 'ldapsearch -LLL -b "ou=People,o=University of Virginia,c=US" -h ldap.virginia.edu -x ' \
                '"({}={})" givenName sn >../tempout.tmp'.format(fld.strip(), val.strip())
@@ -50,79 +83,41 @@ def get_full_name(fld, val):
 
 
 def get_noname_uids():
-    # Load uids from usrs_noname.dat and write uvaids with uid to uvaids-nonames.dat
-    uids = load_uids()
-    with open('../data/uvaids-nonames.dat', 'w') as outfile:
-        for uid in uids:
-            unm = get_user_name(uid)
-            outfile.write("{}|{}\n".format(uid, unm))
-
-    print("{}".format(len(uids)))
-
-
-def merge_user_names():
     """
-    Create a merged table of users first and last names to use on all sites
-    Need to create these fields on the default site: field_first_name and field_last_name
+    Load guids of users with no first or last name from ../data/guids_no_name.dat
+    and write uvaids with uid to uvaids-nonames.dat
 
     :return:
     """
-    pout("Merging user name field values into fields on default site \n\t\t", 2)
-    name_tables = (
-        'field_data_field_first_name',
-        'field_data_field_last_name',
-        'field_revision_field_first_name',
-        'field_revision_field_last_name'
-    )
-    guids = getalluids()
-    ct = 0
-    insct = 0
-    notfound = []
-    for guid in guids:
-        ct += 1
-        if ct % 100 == 0:
-            pref = "\t" if ct == 100 else ""
-            print("{}{} ... ".format(pref, ct), end='')
-        unm = get_user_names(guid)
-        if not unm or len(unm) < 2:
-            notfound.append(guid)
-            continue
+    #
+    uids = []
+    with open('../data/guids_no_name.dat', 'r') as datain:
+        for ln in datain:
+            ln = ln.strip()
+            if not isinstance(ln, int) and ln.isnumeric:
+                ln = int(ln)
+            uids.append(ln)
+    uids.sort()
 
-        row = None
-        if isinstance(unm, tuple):
-            row = (guid, unm[0], unm[1])
-        elif isinstance(unm, dict):
-            ky1 = list(unm.keys())[0]
-            nmtup = unm[ky1]
-            row = (guid, nmtup['first'], nmtup['last'])
-        if row is None:
-            notfound.append(guid)
-
-        if row is not None:
-            # Row to first name table
-            # first and last name tables have
-            # 'user','user','0','151','151','und','0','Raf',NULL
-            for tbl in name_tables:
-                add_name_field(tbl, row[0], row[1:])
-            insct += 1
-
-    print("\n")
-    pout("{} name fields inserted".format(insct), 2)
-
-    print("Users Without Name:")
-    return notfound
-
-
-def add_name_field(tbl, uid, nms):
-    base_cols = ('entity_type', 'bundle', 'deleted', 'entity_id', 'revision_id', 'language', 'delta')
-    fnm = tbl.replace('field_data_', '').replace('field_revision_', '')
-    cols = base_cols + ("{}_value".format(fnm), "{}_format".format(fnm))
-    ind = 0 if 'first' in fnm else 1
-    vals = ('user', 'user', '0', str(uid), str(uid), 'und', '0', nms[ind], None)
-    doinsert(SHARED_DB, tbl, cols, vals)
+    with open('../data/uvaids_no_name.dat', 'w') as outfile:
+        for uid in uids:
+            usr = loaduser(uid)
+            outfile.write("{}|{}\n".format(uid, usr['name']))
+    print("Wrote {} guids with UVA IDs to ../data/uvaids_no_name.dat".format(len(uids)))
 
 
 def get_user_names(guid):
+    """
+    For a single global user, iterate through the sites and using the uid correspondences find out if they have an
+    entry for first and last name on one of the sites.
+
+    :param guid:
+    :return: mixed
+        There are three possibilites to be returned:
+            1. a tuple of (first name, last name)
+            2. False if nothing found
+            3. a dictionary keyed on site name containing tuples of (first name, last name)
+    """
     results = {}
     uidcorrs = getcorresps(guid)
     if not uidcorrs:
@@ -139,17 +134,17 @@ def get_user_names(guid):
             qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
             lname = doquery("{}{}".format(site, ENV), qry, 'val')
             if lname:
-                results[site] = {'first': fname, 'last': lname}
+                results[site] = (fname,  lname)
     fname = ''
     lname = ''
     myct = 0
     is_diff = False
     for site, nmpts in results.items():
         if myct == 0:
-            fname = nmpts['first']
-            lname = nmpts['last']
+            fname = nmpts[0]
+            lname = nmpts[1]
         else:
-            if fname != nmpts['first'] or lname != nmpts['last']:
+            if fname != nmpts[0] or lname != nmpts[1]:
                 is_diff = True
         myct += 1
 
@@ -161,41 +156,64 @@ def get_user_names(guid):
         return fname, lname
 
 
-def combine_realnames():
+def merge_user_names():
     """
-    Need to do this....
+    Create a merged table of users first and last names to use on all sites
+    Need to create these fields on the default site: field_first_name and field_last_name
+    Writes out a file ../data/guids_no_name.dat with a list of guids that do not have a fn and ln
+
     :return:
     """
-    pass
-
-
-
-def do_uid_full_names():
-    unms = load_unames()
-    uvunms = []
+    pout("Merging user name field values into fields on default site \n\t\t", 2)
+    name_tables = (
+        'field_data_field_first_name',
+        'field_data_field_last_name',
+        'field_revision_field_first_name',
+        'field_revision_field_last_name'
+    )
+    guids = getalluids()
     ct = 0
-    print("Finding usr names: ")
-    for unmstr in unms:
-        guid, uvanm = unmstr.split('|')
-        firstnm, lastnm = get_full_name('uid', uvanm)
-        if firstnm is not None:
-            uvunms.append("{} {}".format(firstnm, lastnm))
-            print(".", end="")
-            ct += 1
-            if ct % 50 == 0:
-                print(" ")
+    insct = 0
+    notfound = []
+    for guid in guids:
+        if int(guid) == 0:
+            continue
+        ct += 1
+        if ct % 100 == 0:
+            pref = "\t" if ct == 100 else ""
+            print("{}{} ... ".format(pref, ct), end='')
+        unm = get_user_names(guid)
+        if not unm or len(unm) < 2:
+            notfound.append(guid)
+            continue
+
+        row = None
+        if isinstance(unm, tuple):
+            row = (guid, unm[0], unm[1])
+        elif isinstance(unm, dict):
+            ky1 = list(unm.keys())[0]
+            nmtup = unm[ky1]
+            row = (guid, nmtup[0], nmtup[1])
+        if row is None:
+            notfound.append(int(guid))
+
+        if row is not None:
+            # Add row to all the name tables
+            for tbl in name_tables:
+                add_name_field(tbl, row[0], row[1:])
+            insct += 1
 
     print("\n")
-    print("{} names found".format(len(uvunms)))
+    pout("{} name fields inserted".format(insct), 2)
 
+    notfound.sort()
+    with open('../data/guids_no_name.dat', 'w') as dataout:
+        for nf in notfound:
+            dataout.write("{}\n".format(nf))
 
 
 if __name__ == "__main__":
     # get_noname_uids()
-    notfound = merge_user_names()
-    notfound = [int(nfid) for nfid in notfound]
-    notfound.sort()
-    with open('../data/guids_no_name.dat', 'w') as dataout:
-        for nf in notfound:
-            dataout.wrtie(nf)
+    merge_user_names()
+
     print("done!")

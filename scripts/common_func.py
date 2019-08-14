@@ -175,6 +175,8 @@ def getcorresps(global_uid):
     :return: dict
         a dictionary of column/value pairs from the correspondence table
     """
+    if global_uid == 0:
+        return None
     mycnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
     mycrs = mycnx.cursor()
     mycrs.execute("SELECT * FROM uidcorresp WHERE uid={}".format(global_uid))
@@ -282,10 +284,12 @@ def resdict(crs, limit_rows=-1):
     cols = crs.column_names
     if limit_rows == 1:
         row = crs.fetchone()
+        if row is None:
+            return newres
         rows = [row]
     else:
         rows = crs.fetchall()
-    # print(rows)
+
     if rows and len(rows) > 0:
         if len(cols) != len(rows[0]):
             raise KeyError("The number of columns ({}) do not match the number of items in the " /
