@@ -10,8 +10,6 @@ import time
 from common_func import *
 import pandas as pd
 from pprint import PrettyPrinter
-import phpserialize as php
-import json
 
 pd.set_option('display.max_rows', 200)
 pp = PrettyPrinter(indent=2)
@@ -148,7 +146,7 @@ def merge_users(outdbnm=SHARED_DB):
     doquery(outdbnm, insert_anon_qry, "commit")
     doquery(outdbnm, "UPDATE users SET uid = 0 WHERE name = ''", "commit")
 
-    pout("{} users added to {} database".format(c, outdbnm), 2)
+    pout("{} unique users added to {} database".format(c, outdbnm), 2)
 
     # Create the uidcorresp table with correspondences
     pout("Creating the `uidcorresp` table with correspondences to old uids and new ones", 2)
@@ -269,27 +267,34 @@ def concat_users_roles():
     :return: None
     """
     users = getallrows(SHARED_DB, 'users')
-    pout("there are {} users".format(len(users)), 2)
-    print("truncating current users_roles....")
+    siteroles = {}
+    for site in SITES:
+        db = "{}{}".format(site, ENV)
+        suroles = getallrows(db, 'users_roles')
+        srdict = {}
+        for rw in suroles:
+            srdict[rw['uid']] = rw['rid']
+        siteroles[site] = srdict
+
+    pout("There are {} users".format(len(users)), 2)
+    pout("Truncating current users_roles....", 2)
     truncatetable(SHARED_DB, 'users_roles')
     ct = 0
-    pout("determining new roles for each user...", 2)
+    pout("Determining new roles for each user...", 2)
     user_roles_rows = []
     for usr in users:
         ct += 1
         uid = usr['uid']
         corrs = getcorresps(uid)
-        if uid == 429:
-            pout("{} 429 corresps:".format(usr['name']), 2)
-            pout(corrs, 2)
         if corrs is None:
             continue
         newrole = 1
         for site in SITES:
             key = "{}_uid".format(site)
             suid = corrs[key]
-            qry = "SELECT rid FROM users_roles WHERE uid={}".format(suid)
-            srole = doquery("{}{}".format(site, ENV), qry, 'val')
+            srole = siteroles[site][suid] if suid in siteroles[site] else None
+            if srole is None:
+                continue
             if srole == 3:
                 newrole = 3
                 break
@@ -300,6 +305,7 @@ def concat_users_roles():
         if newrole > 2:
             user_roles_rows.append([uid, newrole])
     doinsertmany(SHARED_DB, 'users_roles', 'uid,rid', user_roles_rows)
+    pout("Created {} user role entries in the global db".format(len(user_roles_rows)), 2)
 
 
 def clean_up():
@@ -332,6 +338,7 @@ def merge_all_tables(db=SHARED_DB):
 
 
 if __name__ == '__main__':
-    # pout("Merging all tables for PREDEV using the default db as the shared one.")
-    merge_all_tables()
-
+    pout("Merging all tables for PREDEV using the default db as the shared one.")
+    merge_all_tables()  ## Need to do concat_user_roles() separate because MySQL dies otherwise
+    # concat_users_roles()
+    # clean_up()

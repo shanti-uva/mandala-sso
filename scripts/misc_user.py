@@ -175,6 +175,10 @@ def merge_user_names():
 
     :return:
     """
+    truncatetable(SHARED_DB, 'field_data_field_first_name')
+    truncatetable(SHARED_DB, 'field_revision_field_first_name')
+    truncatetable(SHARED_DB, 'field_data_field_last_name')
+    truncatetable(SHARED_DB, 'field_revision_field_last_name')
     pout("Merging user name field values into fields on default site \n\t\t", 2)
     guids = getalluids()
     ct = 0

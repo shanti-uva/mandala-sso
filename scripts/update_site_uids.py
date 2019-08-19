@@ -37,9 +37,26 @@ def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
 def update_all_tables_with_uids(site):
     update_uids_in_table(site, 'node', 'nid', 'uid')
     update_uids_in_table(site, 'node_revision', 'nid', 'uid')
+    update_uids_in_table(site, 'file_managed', 'fid', 'uid')
+    update_uids_in_table(site, 'og_users_roles', 'gid', 'uid')
+
+
+def truncate_all_tables_to_repopulate(site):
+    db = "{}{}".format(site, ENV)
+    tbls = [
+        'autosaved_forms',
+        'history',
+        'password_policy_history',
+        'realname'
+    ]
+    for tbl in tbls:
+        truncatetable(db, tbl)
 
 
 if __name__ == "__main__":
-    update_uids_in_table('visuals', 'node', 'nid', 'uid')
+    asite = 'visuals'
+    print("Doing {}".format(asite))
+    update_all_tables_with_uids(asite)
+    truncate_all_tables_to_repopulate(asite)
     print("Done")
 

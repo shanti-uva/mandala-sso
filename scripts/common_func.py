@@ -25,6 +25,8 @@ ROLE_CORRS = {                              # The correspondences bet. individua
     'visuals': {4: 6, 5: 4}
 }
 
+uidcorr = {}
+
 
 # Common Functions
 def doquery(db, query, return_type='dict'):
@@ -43,24 +45,27 @@ def doquery(db, query, return_type='dict'):
     :return: list
         A list of result rows either as dictionaries or tuples
     """
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.execute(query)
-    if return_type == 'dict':
-        return resdict(mycrs)
-    elif return_type == 'list':
-        res = [item[0] for item in mycrs.fetchall()]
-        return res
-    elif return_type == 'val':
-        res = mycrs.fetchone()
-        if res is None or len(res) == 0:
-            return False
+    try:
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.execute(query)
+        if return_type == 'dict':
+            return resdict(mycrs)
+        elif return_type == 'list':
+            res = [item[0] for item in mycrs.fetchall()]
+            return res
+        elif return_type == 'val':
+            res = mycrs.fetchone()
+            if res is None or len(res) == 0:
+                return False
+            else:
+                return res[0]
+        elif return_type == 'commit':
+            mycnx.commit()
         else:
-            return res[0]
-    elif return_type == 'commit':
-        mycnx.commit()
-    else:
-        return mycrs.fetchall()
+            return mycrs.fetchall()
+    except mysql.connector.Error as err:
+        print("MySQL error in doquery: {}".format(err))
 
 
 def doinsert(db, tbl, cols, vals):
@@ -76,21 +81,24 @@ def doinsert(db, tbl, cols, vals):
         the values for each column
     :return: None
     """
-    if isinstance(cols, list) or isinstance(cols, tuple):
-        cols = list(map(lambda x: str(x), list(cols)))  # convert whatever is given into an list of strings
-        cols = ', '.join(cols)
-    if cols[0] != '(':
-        cols = '(' + cols + ')'
-    cols = cols.replace("'", '')
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    sql = 'INSERT INTO {} {} VALUES ({})'.format(
-        tbl,
-        cols,
-        ', '.join(['%s' for _ in vals])
-    )
-    mycrs.execute(sql, vals)
-    mycnx.commit()
+    try:
+        if isinstance(cols, list) or isinstance(cols, tuple):
+            cols = list(map(lambda x: str(x), list(cols)))  # convert whatever is given into an list of strings
+            cols = ', '.join(cols)
+        if cols[0] != '(':
+            cols = '(' + cols + ')'
+        cols = cols.replace("'", '')
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        sql = 'INSERT INTO {} {} VALUES ({})'.format(
+            tbl,
+            cols,
+            ', '.join(['%s' for _ in vals])
+        )
+        mycrs.execute(sql, vals)
+        mycnx.commit()
+    except mysql.connector.Error as err:
+        print("MySQL error in doinsert: {}".format(err))
 
 
 def doinsertmany(db, tbl, cols, vals):
@@ -106,29 +114,33 @@ def doinsertmany(db, tbl, cols, vals):
         list of rows (tuples) to insert
     :return: None
     """
-    # Turn cols array into string surrounded by parentheses
-    if isinstance(cols, list):
-        cols = ', '.join(cols)
-    if cols[0] != '(':
-        cols = '(' + cols + ')'
-    cols = cols.replace("'", '')
+    try:
+        # Turn cols array into string surrounded by parentheses
+        if isinstance(cols, list):
+            cols = ', '.join(cols)
+        if cols[0] != '(':
+            cols = '(' + cols + ')'
+        cols = cols.replace("'", '')
 
-    # Create format string for values made of parentheses with %s for each item in row
-    fmtvals = "({})".format(', '.join(['%s' for _ in vals[0]]))
+        # Create format string for values made of parentheses with %s for each item in row
+        fmtvals = "({})".format(', '.join(['%s' for _ in vals[0]]))
 
-    # Build query
-    qry = 'INSERT INTO {} {} VALUES {}'.format(
-        tbl,
-        cols,
-        fmtvals,
-    )
-    # print("query is: {}".format(qry))
+        # Build query
+        qry = 'INSERT INTO {} {} VALUES {}'.format(
+            tbl,
+            cols,
+            fmtvals,
+        )
+        # print("query is: {}".format(qry))
 
-    # Connect to database and execute a multi row insert
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.executemany(qry, vals)
-    mycnx.commit()
+        # Connect to database and execute a multi row insert
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.executemany(qry, vals)
+        mycnx.commit()
+
+    except mysql.connector.Error as err:
+        print("MySQL error in doinsertmany: {}".format(err))
 
 
 def droptable(db, tbl):
@@ -140,9 +152,13 @@ def droptable(db, tbl):
         the name of the table
     :return: None
     """
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.execute('DROP TABLE IF EXISTS {}'.format(tbl))
+    try:
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.execute('DROP TABLE IF EXISTS {}'.format(tbl))
+
+    except mysql.connector.Error as err:
+        print("MySQL error in droptable: {}".format(err))
 
 
 def find_uid(site, suid, rettype='int'):
@@ -157,15 +173,27 @@ def find_uid(site, suid, rettype='int'):
     :return: dict
         the global user row as a
     """
-    mycnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
-    mycrs = mycnx.cursor()
-    mycrs.execute('SELECT * FROM uidcorresp WHERE {}_uid=\'{}\''.format(site, suid))
-    rw = getfirstrow(mycrs)
 
-    if rw is not None and rettype == "int":
-        return rw['uid']
-    else:
-        return rw
+    corrs = loadcorresps()
+    sitekey = '{}_uid'.format(site)
+    suid = int(suid)
+    for uid, iddict in corrs.items():
+        if int(iddict[sitekey]) == suid:
+            if rettype == 'int':
+                return int(uid)
+            else:
+                return uid
+
+    return None
+
+
+def loadcorresps():
+    global uidcorr
+    if len(uidcorr) == 0:
+        allrws = getallrows(SHARED_DB, 'uidcorresp')
+        for rw in allrws:
+            uidcorr[int(rw['uid'])] = rw
+    return uidcorr
 
 
 def getcorresps(global_uid):
@@ -176,12 +204,12 @@ def getcorresps(global_uid):
     :return: dict
         a dictionary of column/value pairs from the correspondence table
     """
-    if global_uid == 0:
+    corrs = loadcorresps()
+    global_uid = int(global_uid)
+    if global_uid in corrs:
+        return corrs[global_uid]
+    else:
         return None
-    mycnx = mysql.connector.connect(user='root', port=33067, database=SHARED_DB)
-    mycrs = mycnx.cursor()
-    mycrs.execute("SELECT * FROM uidcorresp WHERE uid={}".format(global_uid))
-    return getfirstrow(mycrs)
 
 
 def getcorrespsbysite(site, suid):
@@ -191,9 +219,13 @@ def getcorrespsbysite(site, suid):
     :param suid:
     :return:
     """
-    qry = "SELECT * from uidcorresp where {}_uid={}".format(site, suid)
-    res = doquery(SHARED_DB, qry)
-    return res
+    corrs = loadcorresps()
+    sitekey = "{}_uid".format(site)
+    suid = int(suid)
+    for uid, iddict in corrs.items():
+        if int(iddict[sitekey]) == suid:
+            return iddict
+    return None
 
 
 def getallrows(db, tbl):
@@ -207,10 +239,15 @@ def getallrows(db, tbl):
         a list of dictionaries for each row
     """
     if tableexists(db, tbl):
-        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-        mycrs = mycnx.cursor()
-        mycrs.execute("SELECT * FROM {}".format(tbl))
-        return resdict(mycrs)
+        try:
+            mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+            mycrs = mycnx.cursor()
+            mycrs.execute("SELECT * FROM {}".format(tbl))
+            return resdict(mycrs)
+
+        except mysql.connector.Error as err:
+            print("Mysql error in getallrows: {}".format(err))
+            return {}
     else:
         return {}
 
@@ -258,8 +295,8 @@ def loaduser(uid, site=SHARED_DB):
         mycrs.execute(qry)
         fr = getfirstrow(mycrs)
         return fr
-    except mysql.connector.errors.ProgrammingError as pe:
-        print("errorr: {}".format(qry))
+    except mysql.connector.Error as err:
+        print("Mysql error in loaduser: {}".format(err))
 
 
 def loadalluserinfo(uid):
@@ -342,9 +379,16 @@ def truncatetable(db, tbl):
         The table name
     :return: None
     """
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.execute('TRUNCATE TABLE {}'.format(tbl))
+    if tableexists(db, tbl):
+        try:
+            mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+            mycrs = mycnx.cursor()
+            mycrs.execute('TRUNCATE TABLE {}'.format(tbl))
+
+        except mysql.connector.Error as err:
+            print("Mysql error in truncate table: {}".format(err))
+    else:
+        print("Cannont truncate table {} on {}. Doesn't exist.".format(tbl, db))
 
 
 def unbyte(obj):
@@ -381,9 +425,13 @@ def unbyte(obj):
 
 
 def update_single_col(db, tbl, set, cond):
-    update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, set, cond)
-    mycnx = mysql.connector.connect(user='root', port=33067, database=db)
-    mycrs = mycnx.cursor()
-    mycrs.execute(update_qry)
-    mycnx.commit()
+    try:
+        update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, set, cond)
+        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.execute(update_qry)
+        mycnx.commit()
+
+    except mysql.connector.Error as err:
+        print("Mysql error in update_single_col: {}".format(err))
 
