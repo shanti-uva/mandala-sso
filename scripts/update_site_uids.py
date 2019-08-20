@@ -78,8 +78,11 @@ def truncate_all_tables_to_repopulate(site):
 
 if __name__ == "__main__":
     asite = 'visuals'
-    print("Doing {}".format(asite))
-    update_all_tables_with_uids(asite)
-    truncate_all_tables_to_repopulate(asite)
+    for asite in SITES:
+        if asite == 'visuals':
+            continue
+        print("Doing {}".format(asite))
+        update_all_tables_with_uids(asite)
+        truncate_all_tables_to_repopulate(asite)
     print("Done")
 
