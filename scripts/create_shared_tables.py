@@ -5,7 +5,7 @@ Combines previous merge_users.py and concat_authmap.py plus new scripts
 
 '''
 
-#  import mysql.connector
+import mysql.connector
 import time
 from common_func import *
 import pandas as pd

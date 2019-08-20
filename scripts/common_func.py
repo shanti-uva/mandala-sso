@@ -388,7 +388,7 @@ def truncatetable(db, tbl):
         except mysql.connector.Error as err:
             print("Mysql error in truncate table: {}".format(err))
     else:
-        print("Cannont truncate table {} on {}. Doesn't exist.".format(tbl, db))
+        print("Table {} doesn't exist in {}. Cannot truncate.".format(tbl, db))
 
 
 def unbyte(obj):
@@ -424,14 +424,16 @@ def unbyte(obj):
         return obj
 
 
-def update_single_col(db, tbl, set, cond):
+def update_single_col(db: str, tbl: str, setstr: str, condstr: str, raise_exception: bool = False) -> None:
     try:
-        update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, set, cond)
+        update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, setstr, condstr)
         mycnx = mysql.connector.connect(user='root', port=33067, database=db)
         mycrs = mycnx.cursor()
         mycrs.execute(update_qry)
         mycnx.commit()
 
     except mysql.connector.Error as err:
-        print("Mysql error in update_single_col: {}".format(err))
+        if raise_exception:
+            raise err
+
 
