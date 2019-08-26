@@ -1,7 +1,9 @@
 '''
 Common functions
 '''
+import mysql
 import mysql.connector
+import time
 
 # Constants
 SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')  # all the resource sites in Drupal
@@ -38,6 +40,7 @@ def doquery(db, query, return_type='dict'):
         the full query string (no semicolon)
     :param return_type: str
         the type of return for each row, defaults to 'dict'
+            "commit" : returns nothing but commits update
             "dict" : returns a list of rows as dictionary of keys-value pairs, where keys are the column names
             "val"  : returns a single value
             ""     : returns a list of rows as tuples (the mysql default)
@@ -427,7 +430,7 @@ def unbyte(obj):
 def update_single_col(db: str, tbl: str, setstr: str, condstr: str, raise_exception: bool = False) -> None:
     try:
         update_qry = "UPDATE {} SET {} WHERE {}".format(tbl, setstr, condstr)
-        mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycnx = mysql.connector.connect(user='root', host='127.0.0.1', port=33067, database=db)
         mycrs = mycnx.cursor()
         mycrs.execute(update_qry)
         mycnx.commit()
@@ -437,3 +440,14 @@ def update_single_col(db: str, tbl: str, setstr: str, condstr: str, raise_except
             raise err
 
 
+def update_single_col_many(db: str, tbl: str, setcol: str, condcol: str, updates: list, raise_exception: bool = False) -> None:
+    try:
+        update_qry = "UPDATE {} SET {}=%s WHERE {}=%s".format(tbl, setcol, condcol)
+        mycnx = mysql.connector.connect(user='root', host='127.0.0.1', port=33067, database=db)
+        mycrs = mycnx.cursor()
+        mycrs.executemany(update_qry, updates)
+        mycnx.commit()
+
+    except mysql.connector.Error as err:
+        if raise_exception:
+            raise err

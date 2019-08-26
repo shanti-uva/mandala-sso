@@ -9,6 +9,7 @@ uidtables = {}
 userentitytables = []
 for site in SITES:
     print("\nDoing {}".format(site))
+    userentitytables.append("SITE {}".format(site))
     db = "{}{}".format(site, ENV)
     cnx = mysql.connector.connect(user='root', port=33067, database=db)
     cursor = cnx.cursor()
@@ -39,7 +40,7 @@ for site in SITES:
                 cursor.execute('SELECT count(*) FROM {} WHERE entity_type=\'user\''.format(table))
                 cnt = (cursor.fetchone())[0]
                 if cnt > 0:
-                    userentitytables.append("{} ({})".format(table, site))
+                    userentitytables.append("{}".format(table))
 
 print("Done Tabulating")
 print("There are {} unique tables with uid fields".format(len(uidtables)))
@@ -57,4 +58,5 @@ for tbl in tbls:
 
 
 print("userentitytables!")
-print(userentitytables)
+for ln in userentitytables:
+    print(ln)

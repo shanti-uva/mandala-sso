@@ -134,16 +134,25 @@ def get_user_names(guid):
     if not uidcorrs:
         return False
     for site in SITES:
-        if site in ('audio_video', 'mandala'):
+        if site == 'mandala':
             continue
+        db = "{}{}".format(site, ENV)
         uid = uidcorrs["{}_uid".format(site)]
         if uid > 0:
-            field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
-            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-            fname = doquery("{}{}".format(site, ENV), qry, 'val')
-            field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
-            qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
-            lname = doquery("{}{}".format(site, ENV), qry, 'val')
+            if site == 'audio_video':
+                # Use profile fields from AV 1 = first name and 2 = last name
+                qry = 'SELECT value FROM profile_value WHERE fid=1 AND uid={}'.format(uid)
+                fname = doquery(db, qry, 'val')
+                qry = 'SELECT value FROM profile_value WHERE fid=2 AND uid={}'.format(uid)
+                lname = doquery(db, qry, 'val')
+            else:
+                field_name = 'fname' if site in ('images', 'visuals') else 'first_name'
+                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+                fname = doquery(db, qry, 'val')
+                field_name = 'lname' if site in ('images', 'visuals') else 'last_name'
+                qry = 'SELECT field_{0}_value FROM field_data_field_{0} WHERE entity_id={1}'.format(field_name, uid)
+                lname = doquery(db, qry, 'val')
+
             if lname:
                 results[site] = (fname,  lname)
     fname = ''
