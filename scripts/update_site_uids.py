@@ -176,17 +176,18 @@ def truncate_all_tables_to_repopulate(site):
 
 
 if __name__ == "__main__":
-    asite = 'mandala'
-    print("Doing {}".format(asite))
-
-    update_uids_in_table(asite, 'node', 'nid', 'uid')
-    update_uids_in_table(asite, 'node_revision', 'nid', 'uid')
-    update_uids_in_table(asite, 'file_managed', 'fid', 'uid')
-    if tableexists('og_users_roles'):
-        replace_uids_in_table(asite, 'og_users_roles', 'uid')
-    if tableexists('og_membership'):
-        update_user_entity_id_columns(asite, 'og_membership', 'id', 'etid')
-    # replace_uids_in_table(asite, 'views_natural_sort', 'eid', True)
+    for asite in SITES:
+        print("Doing {}".format(asite))
+        db = "{}{}".format(asite, ENV)
+        update_uids_in_table(asite, 'node', 'nid', 'uid')
+        update_uids_in_table(asite, 'node_revision', 'nid', 'uid')
+        update_uids_in_table(asite, 'file_managed', 'fid', 'uid')
+        if tableexists(db, 'og_users_roles'):
+            replace_uids_in_table(asite, 'og_users_roles', 'uid')
+        if tableexists(db, 'og_membership'):
+            update_user_entity_id_columns(asite, 'og_membership', 'id', 'etid')
+        if tableexists(db, 'views_natural_sort'):
+            replace_uids_in_table(asite, 'views_natural_sort', 'eid', True)
 
     print("Done")
 

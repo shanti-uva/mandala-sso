@@ -339,6 +339,4 @@ def merge_all_tables(db=SHARED_DB):
 
 if __name__ == '__main__':
     pout("Merging all tables for PREDEV using the default db as the shared one.")
-    merge_all_tables()  ## Need to do concat_user_roles() separate because MySQL dies otherwise
-    # concat_users_roles()
-    # clean_up()
+    merge_all_tables()
