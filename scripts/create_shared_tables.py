@@ -85,8 +85,6 @@ def merge_users(outdbnm=SHARED_DB):
         # Notice: with Python dictionaries one needs to explicitly call the copy routine
         #         to avoid newusr being just a reference to the dictionary in compiled_users
         newusr = urecs[default_row].copy() if default_row in urecs.keys() else urecs[list(urecs.keys())[0]].copy()
-        if newusr['status'] == 0:
-            continue
 
         # Fix erroneous timezones
         newusr['timezone'] = 'America/New_York' if newusr['timezone'] == 'Africa/Abidjan' \
@@ -254,6 +252,7 @@ def merge_roles():
     The constant ROLE_CORRS define the correspondences between individual sites roles and the new set of global roles
     :return: None
     """
+    pout("Truncating and rewriting roles", 2)
     truncatetable(SHARED_DB, 'role')
     for rdata in DEFAULT_ROLES:
         doinsert(SHARED_DB, 'role', str(ROL_COLL_NAMES), rdata)

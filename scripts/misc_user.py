@@ -62,10 +62,13 @@ def do_uid_full_names():
     print("\n")
     pout("{} names found".format(len(uvanms)), 2)
     pout("Adding to global name tables ....", 2)
-    for uvanm in uvanms:
-        add_first_name(uvanm[0], uvanm[1])
-        add_last_name(uvanm[0], uvanm[2])
-    pout("New names added!", 2)
+    with open('../data/guid_ldap_names.dat', 'w') as dout:
+        for uvanm in uvanms:
+            dout.write("{}|{}|{}\n".format(uvanm[0], uvanm[1], uvanm[2]))
+    # for uvanm in uvanms:
+    #     add_first_name(uvanm[0], uvanm[1])
+    #     add_last_name(uvanm[0], uvanm[2])
+    pout("GUID/full name correspondence data written to: ../data/guid_ldap_names.dat", 2)
 
 
 def get_full_name(fld, val):
@@ -241,11 +244,16 @@ def populate_global_name_fields():
     merge_user_names()
     pout("Getting uvaids for users without names", 2)
     get_noname_uids()
-    pout("Looking for names in LDAP (Must be on VPN!)", 2)
-    do_uid_full_names()
+    # Can't use LDAP on Cloud must figure out different way
+    resp = input("Query LDAP through VPN for full names of users with just computing ID (y or n)? ")
+    if resp == 'y':
+        pout("Looking for names in LDAP (Must be on VPN!)", 2)
+        do_uid_full_names()
 
 
 if __name__ == "__main__":
+    do_uid_full_names()
+    exit(0)
     pout("Processing user names", 1)
     populate_global_name_fields()
     print("Done!")
