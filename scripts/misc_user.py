@@ -193,6 +193,7 @@ def merge_user_names():
     truncatetable(SHARED_DB, 'field_revision_field_last_name')
     pout("Merging user name field values into fields on default site \n\t\t", 2)
     guids = getalluids()
+    pout("All UIDs retrieved", 2)
     ct = 0
     insct = 0
     notfound = []
@@ -252,8 +253,6 @@ def populate_global_name_fields():
 
 
 if __name__ == "__main__":
-    do_uid_full_names()
-    exit(0)
     pout("Processing user names", 1)
     populate_global_name_fields()
     print("Done!")

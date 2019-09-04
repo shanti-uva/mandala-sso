@@ -5,8 +5,6 @@ Combines previous merge_users.py and concat_authmap.py plus new scripts
 
 '''
 
-import mysql.connector
-import time
 from common_func import *
 import pandas as pd
 from pprint import PrettyPrinter
@@ -124,19 +122,18 @@ def merge_users(outdbnm=SHARED_DB):
     pout("Writing users to {}’s user table".format(outdbnm))
     truncatetable(outdbnm, 'users')  # Truncate and existing user info
     c = 0
+    uitem = new_users.values().__iter__().__next__()
+    ukeys = [k for k, v in uitem.items() if k != 'uuid']
+    uvals = []
     for name, rwdata in new_users.items():
-        rkeys = []
         rvals = []
         for k, v in rwdata.items():
-            # Sources has an extra user uuid field. Skip it.
-            # TODO: Make sure this doesn't break the sources site. Maybe disable that module on Sources.
-            if k == 'uuid':
-                continue
-            rkeys.append(k)
-            rvals.append(v)
-
-        doinsert(outdbnm, 'users', rkeys, rvals)
+            if k != 'uuid':
+                rvals.append(v)
+        uvals.append(rvals)
         c += 1
+
+    doinsertmany(outdbnm, 'users', ukeys, uvals)
 
     # Adding back in the anonymous user (See http://drupal.org/node/1029506)
     insert_anon_qry = "INSERT INTO users (name, pass, mail, theme, signature, language, init, timezone) VALUES " \
@@ -237,9 +234,13 @@ def concat_authmap():
     users = getallrows(SHARED_DB, 'users')
     pout("Truncated Shared Authmap table!", 2)
     truncatetable(SHARED_DB, 'authmap')
+    insert_cols = ['uid', 'authname', 'module']
+    insert_vals = []
     for usr in users:
         if isauth(usr['uid']):
-            doinsert(SHARED_DB, 'authmap', 'uid, authname, module', (usr['uid'], usr['name'], DEFAULT_AUTH))
+            insert_vals.append((usr['uid'], usr['name'], DEFAULT_AUTH))
+            # doinsert(SHARED_DB, 'authmap', 'uid, authname, module', (usr['uid'], usr['name'], DEFAULT_AUTH))
+    doinsertmany(SHARED_DB, 'authmap', insert_cols, insert_vals)
     rows = getallrows(SHARED_DB, 'authmap')
     pout("Repopulated Shared Authmap table with {} rows".format(len(rows)), 2)
 
