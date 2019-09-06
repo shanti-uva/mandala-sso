@@ -1,5 +1,6 @@
 import mysql.connector
 from common_func import *
+import pandas as pd
 
 
 def verify_one_corresp(uid, rettype='boolean'):
@@ -107,9 +108,50 @@ def find_email_globally(emailpt):
             print(site, res)
 
 
-if __name__ == '__main__':
-    find_email_globally('vck6mg')
-    corrs = getcorrespsbysite('audio_video', 312)
-    print(corrs)
-    verify_all_corresp()
+def check_uids_in_table(site, tbl, indcol):
+    db = "{}{}".format(site, ENV)
+    tmpcorresps = loadcorresps()
+    corresps = {}
+    for ind, rw in tmpcorresps.items():
+        siteuid = rw["{}_uid".format(site)]
+        corresps[siteuid] = rw
 
+    tempnewdata = getallrows(db, tbl)
+    newdata = {}
+    for rw in tempnewdata:
+        newdata[rw[indcol]] = rw
+
+    sitestr = 'av' if site == 'audio_video' else site
+    olddb = "{}_old_tables".format(sitestr)
+    tempolddata = getallrows(olddb, tbl)
+    olddata = {}
+    for rw in tempolddata:
+        olddata[rw[indcol]] = rw
+
+    badlist = []
+    for ind, rw in olddata.items():
+        olduid = rw['uid']
+        newuid = newdata[ind]['uid']
+        corruid = corresps[olduid]['uid']
+
+        if newuid != corruid:
+            info = {
+                indcol: ind,
+                'corruid': corruid,
+                'olduid': olduid,
+                'newuid': newuid
+            }
+            badlist.append(info)
+
+    df = pd.DataFrame(badlist)
+    print("{} bad rows out of {}".format(len(badlist), len(olddata)))
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+        print(df)
+
+
+if __name__ == '__main__':
+    # find_email_globally('vck6mg')
+    # corrs = getcorrespsbysite('audio_video', 312)
+    # print(corrs)
+    # verify_all_corresp()
+    check_uids_in_table('audio_video', 'node', 'nid')

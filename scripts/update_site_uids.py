@@ -15,60 +15,39 @@ def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
     log = open('../logs/{}-{}-uid-update-{}.log'.format(site, tblnm, int(time.time())), 'w')
     rows = getallrows(db, tblnm)
     noguids = ["||uid||{}||".format(idcol)]
-    fails = []
-    tries = 0
-    # Some tables, e.g. og_user_groups, use indexes that incorporate user id
-    # When changing user ids, sometimes there are conflicts between these unique indexes
-    # Iterate over rows, capture failures, and try again (Actually don't need this, but leaving for now!)
-    while tries == 0:  # or len(fails) > 0:
-        faillist = []
-        tries += 1
-        pout("Doing {} rows".format(len(rows)), 3)
-        print("\t\t\t", end="")
-        rct = 0
-        update_list = []
-        for rw in rows:
-            rct += 1
-            suid = rw[ucol]
-            guid = find_uid(site, suid)
-            if guid is not None:
-                setstr = 'uid={}'.format(guid)
-                condstr = '{}={}'.format(idcol, rw[idcol])
-                try:
-                    if rct % 1000 != 0:
-                        update_list.append((guid, rw[idcol]))
-                    else:
-                        update_single_col_many(db, tblnm, 'uid', idcol, update_list, True)
-                        update_list = []
-                        # time.sleep(.001)
-                    # update_single_col(db, tblnm, setstr, condstr, True)
-                    # time.sleep(.001)  # Pausing to let mysql catch its breath
-                except mysql.connector.Error as err:
-                    log.write("Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr))
-                    log.write(str(err))
-                    faillist = faillist + update_list
-                    # faillist.append(rw)
-                print("\r\t\t\tRow {}          ".format(rct), end="")
-            else:
-                noguids.append("{}|{}".format(suid, rw[idcol]))
-        print(" ")  # End same line output
-        if len(faillist) > 0:
-            if tries == 10:
-                pout("Warning!!! Aborting after 10 tries. Still {} failed rows".format(len(faillist)), 2)
-                log.write("Aborting after 10 tries. Still {} failed rows".format(len(faillist)))
-                log.write(str(faillist))
-                # print(faillist)
-                break
-            elif tries == 1:
-                pout("Warning!!! {} rows failed.".format(len(faillist)), 2)
-                log.write("{} rows failed".format(len(faillist)))
-                log.write(str(faillist))
-            else:
-                pout("{} rows failed to update. Doing try {}".format(len(faillist), tries + 1))
-                rows = faillist.copy()
-                fails = faillist.copy()
+
+    pout("Doing {} rows".format(len(rows)), 3)
+
+    print("\t\t\t", end="")
+    rct = 0
+    update_list = []
+    for xind, rw in enumerate(rows):
+        if int(rw['nid']) in (38181, 38186, 38911, 38931, 38986, 39571):
+            adummyvar = 0
+        rct += 1
+        suid = rw[ucol]
+        guid = find_uid(site, suid)
+        if guid is not None:
+            setstr = 'uid={}'.format(guid)
+            condstr = '{}={}'.format(idcol, rw[idcol])
+            try:
+                update_list.append((guid, rw[idcol]))
+                if rct % 1000 == 0 or xind == len(rows) - 1:
+                    update_single_col_many(db, tblnm, 'uid', idcol, update_list, True)
+                    update_list = []
+            except mysql.connector.Error as err:
+                print("!!! Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr), end="")
+                log.write("Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr))
+                log.write(str(err))
+
+            print("\r\t\t\tRow {}          ".format(rct), end="")
+
         else:
-            fails = []
+            noguids.append("{}|{}".format(suid, rw[idcol]))
+            print("!!!!  No gui for {}".format(suid), end="")
+            log.write("No gui for {}".format(suid))
+
+    print(" ")  # End same line output
 
     outflnm = "../data/{}-orphaned-uids-{}.dat".format(db, tblnm)
     if len(noguids) > 1:
@@ -175,7 +154,7 @@ def truncate_all_tables_to_repopulate(site):
         truncatetable(db, tbl)
 
 
-if __name__ == "__main__":
+def do_all_updates():
     for asite in SITES:
         print("Doing {}".format(asite))
         db = "{}{}".format(asite, ENV)
@@ -189,5 +168,9 @@ if __name__ == "__main__":
         if tableexists(db, 'views_natural_sort'):
             replace_uids_in_table(asite, 'views_natural_sort', 'eid', True)
 
+
+if __name__ == "__main__":
+    do_all_updates()
+    # update_uids_in_table('audio_video', 'node', 'nid', 'uid')
     print("Done")
 
