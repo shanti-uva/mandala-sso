@@ -177,15 +177,16 @@ def find_uid(site, suid, rettype='int'):
         the global user row as a
     """
 
+    suid = int(suid)
+    if suid == 0:
+        return 1 if rettype == 'int' else '1'
+
     corrs = loadcorresps()
     sitekey = '{}_uid'.format(site)
-    suid = int(suid)
     for uid, iddict in corrs.items():
         if int(iddict[sitekey]) == suid:
             if rettype == 'int':
-                return int(uid)
-            else:
-                return uid
+                return int(uid) if rettype == 'int' else uid
 
     return None
 

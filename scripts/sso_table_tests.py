@@ -1,6 +1,6 @@
-import mysql.connector
 from common_func import *
 import pandas as pd
+import csv
 
 
 def verify_one_corresp(uid, rettype='boolean'):
@@ -108,7 +108,8 @@ def find_email_globally(emailpt):
             print(site, res)
 
 
-def check_uids_in_table(site, tbl, indcol):
+def check_uids_in_table(site, tbl, indcol, outfile=False):
+    print("\tChecking {}".format(tbl))
     db = "{}{}".format(site, ENV)
     tmpcorresps = loadcorresps()
     corresps = {}
@@ -143,15 +144,33 @@ def check_uids_in_table(site, tbl, indcol):
             }
             badlist.append(info)
 
-    df = pd.DataFrame(badlist)
     print("{} bad rows out of {}".format(len(badlist), len(olddata)))
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-        print(df)
+
+    if len(badlist) > 0:
+        if outfile:
+            with open(outfile, 'w') as outf:
+                keys = badlist[0].keys()
+                dict_write = csv.DictWriter(outf, keys)
+                dict_write.writeheader()
+                dict_write.writerows(badlist)
+        else:
+            df = pd.DataFrame(badlist)
+            with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                print(df)
 
 
 if __name__ == '__main__':
+    imglistfile = '../data/images-bad-uid-conv.csv'
+    print("Doing just images to file: {}".format(imglistfile))
+    check_uids_in_table('images', 'node', 'nid', imglistfile)
+
+    # for site in SITES:
+    #     print("Doing {} Site...".format(site))
+    #     check_uids_in_table(site, 'node', 'nid')
+    #     check_uids_in_table(site, 'node_revision', 'nid')
+    #     # check_uids_in_table(site, 'file_managed', 'fid') # Doesn't work with file managed
+
     # find_email_globally('vck6mg')
     # corrs = getcorrespsbysite('audio_video', 312)
     # print(corrs)
     # verify_all_corresp()
-    check_uids_in_table('audio_video', 'node', 'nid')

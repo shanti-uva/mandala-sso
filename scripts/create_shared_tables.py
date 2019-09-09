@@ -114,7 +114,7 @@ def merge_users(outdbnm=SHARED_DB):
 
         for site in SITES:
             skey = "{}_uid".format(site)
-            corresps[uid][skey] = urecs[site]['uid'] if site in urecs else 0
+            corresps[uid][skey] = urecs[site]['uid'] if site in urecs else -1
 
         compiled_users[ukey]['newuid'] = uid  # for writing correspondences later. No longer necessary?
 

@@ -7,12 +7,14 @@ Date: Aug. 14, 2019
 """
 
 from common_func import *
+import os
 
 
 def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
     db = "{}{}".format(site, ENV)
     pout("Updating {} in {}".format(tblnm, db), 2)
-    log = open('../logs/{}-{}-uid-update-{}.log'.format(site, tblnm, int(time.time())), 'w')
+    logfilenm = '../logs/{}-{}-uid-update-{}.log'.format(site, tblnm, int(time.time()))
+    log = open(logfilenm, 'w')
     rows = getallrows(db, tblnm)
     noguids = ["||uid||{}||".format(idcol)]
 
@@ -22,8 +24,8 @@ def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
     rct = 0
     update_list = []
     for xind, rw in enumerate(rows):
-        if int(rw['nid']) in (38181, 38186, 38911, 38931, 38986, 39571):
-            adummyvar = 0
+        # if int(rw['nid']) in (38181, 38186, 38911, 38931, 38986, 39571):
+        #     adummyvar = 0
         rct += 1
         suid = rw[ucol]
         guid = find_uid(site, suid)
@@ -38,14 +40,14 @@ def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
             except mysql.connector.Error as err:
                 print("!!! Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr), end="")
                 log.write("Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr))
-                log.write(str(err))
+                log.write("{}\n".format(err))
 
             print("\r\t\t\tRow {}          ".format(rct), end="")
 
         else:
             noguids.append("{}|{}".format(suid, rw[idcol]))
             print("!!!!  No gui for {}".format(suid), end="")
-            log.write("No gui for {}".format(suid))
+            log.write("No gui for {}\n".format(suid))
 
     print(" ")  # End same line output
 
@@ -57,6 +59,12 @@ def update_uids_in_table(site, tblnm, idcol, ucol='uid'):
                 dout.write("{}\n".format(nogid))
     else:
         pout("All uids had a global uid", 3)
+    try:
+        if os.path.getsize(logfilenm) == 0:
+            pout("Removing empty logfile: {}".format(logfilenm), 2)
+            os.remove(logfilenm)
+    except OSError:
+        pout("Logfile {} does not exist. Can't delete.".format(logfilenm), 2)
 
 
 def replace_uids_in_table(site, tblnm, ucol='uid', is_entity=False):
