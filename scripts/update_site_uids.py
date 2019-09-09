@@ -111,36 +111,55 @@ def update_user_entity_id_columns(site, tblnm, idcol, uidcol='etid'):
     pout("Updating user entity ids for table {} in {}".format(tblnm, db), 2)
     rows = doquery(db, 'SELECT * FROM {} WHERE entity_type="user"'.format(tblnm))
     noguids = ["||uid||{}||".format(idcol)]
-    log = open('../logs/{}-{}-ueid-update-{}.log'.format(site, tblnm, int(time.time())), 'w')
+    logfilenm = '../logs/{}-{}-ueid-update-{}.log'.format(site, tblnm, int(time.time()))
+    log = open(logfilenm, 'w')
     pout("Doing {} rows for user entities".format(len(rows)), 3)
     print("\t\t\t", end="")
     rct = 0
+    update_cmds = []
     for rw in rows:
         rct += 1
         suid = rw[uidcol]
         guid = find_uid(site, suid)
         if guid is not None:
-            setstr = '{}={}'.format(uidcol, guid)
-            condstr = '{}={}'.format(idcol, rw[idcol])
-            try:
-                update_single_col(db, tblnm, setstr, condstr, True)
-                time.sleep(.001)  # Pausing to let mysql catch its breath
-            except mysql.connector.Error as err:
-                log.write("Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr))
+            # setstr = '{}={}'.format(uidcol, guid)
+            # condstr = 'id={}'.format(rw['id'])
+            # try:
+            #     update_single_col(db, tblnm, setstr, condstr, True)
+            #     time.sleep(.001)  # Pausing to let mysql catch its breath
+            # except mysql.connector.Error as err:
+            #     log.write("Update failed:\tset: {} \tcond: {} \n".format(setstr, condstr))
 
+            update_cmds.append((guid, rw[idcol]))
             print("\r\t\t\tRow {}          ".format(rct), end="")
         else:
             noguids.append("{}|{}".format(suid, rw[idcol]))
+    try:
+        update_single_col_many(db, tblnm, uidcol, idcol, update_cmds)
+    except mysql.connector.Error as err:
+        log.write("Update failed for a list {} rows to {} on {}. Updates below\n".format(len(update_cmds), tblnm, site))
+        log.write("{}|{}\n".format(uidcol, idcol))
+        for ln in update_cmds:
+            log.write("|".join(ln) + "\n")
+
     print(" ")  # End same line output
 
     outflnm = "../data/{}-orphaned-uids-{}.dat".format(db, tblnm)
     if len(noguids) > 1:
         pout("{} {} uids without global uid in {}. Writing info to {}".format(len(noguids) - 1, db, tblnm, outflnm), 3)
+        log.write("{} {} uids without global uid in {}. Writing info to {}\n".format(len(noguids) - 1, db, tblnm, outflnm))
         with open(outflnm, 'w') as dout:
             for nogid in noguids:
                 dout.write("{}\n".format(nogid))
     else:
         pout("All uids had a global uid", 3)
+
+    try:
+        if os.path.getsize(logfilenm) == 0:
+            pout("Removing empty logfile: {}".format(logfilenm), 2)
+            os.remove(logfilenm)
+    except OSError:
+        pout("Logfile {} does not exist. Can't delete.".format(logfilenm), 2)
 
 
 def update_all_tables_with_uids(site):

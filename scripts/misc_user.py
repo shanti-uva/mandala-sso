@@ -61,7 +61,7 @@ def do_uid_full_names():
 
     print("\n")
     pout("{} names found".format(len(uvanms)), 2)
-    pout("Adding to global name tables ....", 2)
+    # pout("Adding to global name tables ....", 2)
     with open('../data/guid_ldap_names.dat', 'w') as dout:
         for uvanm in uvanms:
             dout.write("{}|{}|{}\n".format(uvanm[0], uvanm[1], uvanm[2]))

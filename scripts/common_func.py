@@ -345,6 +345,21 @@ def resdict(crs, limit_rows=-1):
     return newres
 
 
+def rowstodict(itemlist, idcol):
+    '''
+    Convert a list of dictionaries into a dictionary keyed on one column
+
+    :param itemlist: a list of dictionaries
+    :param idcol: the column to key on
+    :return: dictionary using idcol as key
+    '''
+    newdict = {}
+    for item in itemlist:
+        newdict[item[idcol]] = item
+
+    return newdict
+
+
 def tableexists(db, tbl):
     qry = "SHOW TABLES LIKE '{}'".format(tbl);
     res = doquery(db, qry, 'val')

@@ -120,6 +120,8 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
     tempnewdata = getallrows(db, tbl)
     newdata = {}
     for rw in tempnewdata:
+        if indcol == 'etid' and rw['entity_type'] != 'user':
+            continue
         newdata[rw[indcol]] = rw
 
     sitestr = 'av' if site == 'audio_video' else site
@@ -127,12 +129,26 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
     tempolddata = getallrows(olddb, tbl)
     olddata = {}
     for rw in tempolddata:
+        if indcol == 'etid' and rw['entity_type'] != 'user':
+            continue
         olddata[rw[indcol]] = rw
 
     badlist = []
     for ind, rw in olddata.items():
-        olduid = rw['uid']
-        newuid = newdata[ind]['uid']
+        olduid = rw['uid'] if indcol != 'etid' else rw['etid']
+        try:
+            newuid = newdata[ind]['uid'] if indcol != 'etid' else newdata[ind]['etid']
+        except KeyError:
+            print("\t\tuid {} not found in {}".format(ind, tbl))
+            continue
+
+        if olduid == 0 and newuid == 1:
+            continue
+
+        if olduid not in corresps:
+            print("\t\tUID {} not found in Corresp table for {}".format(olduid, site))
+            continue
+
         corruid = corresps[olduid]['uid']
 
         if newuid != corruid:
@@ -144,7 +160,7 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
             }
             badlist.append(info)
 
-    print("{} bad rows out of {}".format(len(badlist), len(olddata)))
+    print("\t\t{} bad rows out of {}".format(len(badlist), len(olddata)))
 
     if len(badlist) > 0:
         if outfile:
@@ -155,22 +171,46 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
                 dict_write.writerows(badlist)
         else:
             df = pd.DataFrame(badlist)
-            with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            with pd.option_context('display.max_rows', 200, 'display.max_columns', None):
                 print(df)
 
 
-if __name__ == '__main__':
-    imglistfile = '../data/images-bad-uid-conv.csv'
-    print("Doing just images to file: {}".format(imglistfile))
-    check_uids_in_table('images', 'node', 'nid', imglistfile)
+def check_og_membership(site):
+    print("\tChecking og_membership table....")
+    db = "{}{}".format(site, ENV)
+    tbl = 'og_membership'
+    newrows = getallrows(db, tbl)
+    newrows = rowstodict(newrows, 'id')
+    sitenm = site if site != 'audio_video' else 'av'
+    olddb = "{}_old_tables".format(sitenm)
+    oldrows = getallrows(olddb, tbl)
+    oldrows = rowstodict(oldrows, 'id')
+    for ogmemid, row in newrows.items():
+        if row['entity_type'] == 'user':
+            guid = row['etid']  # new global user id
+            old_site_uid = oldrows[ogmemid]['etid']
+            corresps = getcorresps(guid)
+            if corresps['{}_uid'.format(site)] != old_site_uid:
+                print("\t\tUID not properly updated for row {} in og_membership".format(ogmemid))
 
-    # for site in SITES:
-    #     print("Doing {} Site...".format(site))
-    #     check_uids_in_table(site, 'node', 'nid')
-    #     check_uids_in_table(site, 'node_revision', 'nid')
-    #     # check_uids_in_table(site, 'file_managed', 'fid') # Doesn't work with file managed
+
+if __name__ == '__main__':
 
     # find_email_globally('vck6mg')
     # corrs = getcorrespsbysite('audio_video', 312)
     # print(corrs)
     # verify_all_corresp()
+    # ========
+    # imglistfile = '../data/images-bad-uid-conv.csv'
+    # print("Doing just images to file: {}".format(imglistfile))
+    # check_uids_in_table('images', 'node', 'nid', imglistfile)
+    # =======
+
+    print("Checking uids in node tables for all sites~!")
+    for asite in SITES:
+        print("\n=========================================")
+        print("Doing {} Site...".format(asite))
+        check_uids_in_table(asite, 'node', 'nid')
+        check_uids_in_table(asite, 'node_revision', 'nid')
+        check_uids_in_table(asite, 'file_managed', 'fid')
+        check_og_membership(asite)
