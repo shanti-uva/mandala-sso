@@ -162,13 +162,6 @@ def update_user_entity_id_columns(site, tblnm, idcol, uidcol='etid'):
         pout("Logfile {} does not exist. Can't delete.".format(logfilenm), 2)
 
 
-def update_all_tables_with_uids(site):
-    update_uids_in_table(site, 'node', 'nid', 'uid')
-    update_uids_in_table(site, 'node_revision', 'nid', 'uid')
-    update_uids_in_table(site, 'file_managed', 'fid', 'uid')
-    update_uids_in_table(site, 'og_users_roles', 'uid', 'uid')
-
-
 def truncate_all_tables_to_repopulate(site):
     db = "{}{}".format(site, ENV)
     tbls = [
@@ -181,8 +174,8 @@ def truncate_all_tables_to_repopulate(site):
         truncatetable(db, tbl)
 
 
-def do_all_updates():
-    for asite in SITES:
+def do_all_updates(sitelist=SITES):
+    for asite in sitelist:
         print("Doing {}".format(asite))
         db = "{}{}".format(asite, ENV)
         update_uids_in_table(asite, 'node', 'nid', 'uid')
@@ -194,10 +187,12 @@ def do_all_updates():
             update_user_entity_id_columns(asite, 'og_membership', 'id', 'etid')
         if tableexists(db, 'views_natural_sort'):
             replace_uids_in_table(asite, 'views_natural_sort', 'eid', True)
+        if asite == 'images':
+            update_uids_in_table('images', 'shanti_images', 'siid', 'uid')
 
 
 if __name__ == "__main__":
-    do_all_updates()
-    # update_uids_in_table('audio_video', 'node', 'nid', 'uid')
+    do_all_updates(['audio_video'])
+    # update_uids_in_table('images', 'shanti_images', 'siid', 'uid')
     print("Done")
 

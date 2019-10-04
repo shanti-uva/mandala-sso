@@ -8,8 +8,8 @@ import time
 # Constants
 SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')  # all the resource sites in Drupal
 # TODO: Update ENV and SHARE_DB to work in the Acquia Cloud environment. The current set up is for DevDesktop.
-ENV = '_predev'                         # the current working environment
-SHARED_DB = 'shanti_predev'             # the destination database where the shared tables will reside
+ENV = '_dev'                         # the current working environment
+SHARED_DB = 'shanti_dev'             # the destination database where the shared tables will reside
 DEFAULT_AUTH = 'simplesamlphp_auth'     # default type of authorization
 DEFAULT_ROLES = [                       # A list of tuples defining the new roles in the shared tables
     ('anonymous user', 1, 0),
