@@ -7,9 +7,13 @@ import time
 
 # Constants
 SITES = ('audio_video', 'images', 'mandala', 'sources', 'texts', 'visuals')  # all the resource sites in Drupal
-# TODO: Update ENV and SHARE_DB to work in the Acquia Cloud environment. The current set up is for DevDesktop.
-ENV = '_dev'                         # the current working environment
-SHARED_DB = 'shanti_dev'             # the destination database where the shared tables will reside
+# Various Environment Related Constants that need to be changed for each environment
+ENV = '_stage'                         # the current working environment (_predev, _stage). Nothing for dev.
+# What is prod? This ENV constant is the suffix to the DB names in the Acquia local mysql server.
+# So mandala.dev db is just called "mandala". But mandala.stage is called "mandala_stage"
+ENVSTR = 'stage'                       # the string to append to db names for _old_tables without underscores
+SHARED_DB = 'shanti_stage'             # the destination database where the shared tables will reside.
+# SHARED_DB is Db for default site.
 DEFAULT_AUTH = 'simplesamlphp_auth'     # default type of authorization
 DEFAULT_ROLES = [                       # A list of tuples defining the new roles in the shared tables
     ('anonymous user', 1, 0),
@@ -31,6 +35,19 @@ uidcorr = {}
 
 
 # Common Functions
+def get_mysql_cursor(db=None):
+    mycrs = None
+    try:
+        if db is None:
+            mycnx = mysql.connector.connect(user='root', port=33067)
+        else:
+            mycnx = mysql.connector.connect(user='root', port=33067, database=db)
+        mycrs = mycnx.cursor()
+    except mysql.connector.Error as err:
+        print("MySQL error in doquery: {}".format(err))
+    return mycrs
+
+
 def doquery(db, query, return_type='dict'):
     """
     Function to perform a query on a database

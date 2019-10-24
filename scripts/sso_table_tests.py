@@ -111,12 +111,14 @@ def find_email_globally(emailpt):
 def check_uids_in_table(site, tbl, indcol, outfile=False):
     print("\tChecking {}".format(tbl))
     db = "{}{}".format(site, ENV)
+    # Load the correspondences
     tmpcorresps = loadcorresps()
     corresps = {}
     for ind, rw in tmpcorresps.items():
         siteuid = rw["{}_uid".format(site)]
         corresps[siteuid] = rw
 
+    # Get all rows from the table being checked in dictionary newdata keyed on the given column indcol
     tempnewdata = getallrows(db, tbl)
     newdata = {}
     for rw in tempnewdata:
@@ -124,8 +126,8 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
             continue
         newdata[rw[indcol]] = rw
 
-    sitestr = 'av' if site == 'audio_video' else site
-    olddb = "{}_old_tables".format(sitestr)
+    # Get all rows from the old table in a dictionary keyed on the given column indcol
+    olddb = "{}_{}_old_tables".format(site, ENVSTR)
     tempolddata = getallrows(olddb, tbl)
     olddata = {}
     for rw in tempolddata:
@@ -133,13 +135,14 @@ def check_uids_in_table(site, tbl, indcol, outfile=False):
             continue
         olddata[rw[indcol]] = rw
 
+    # Iterate through the olddata list, get the uid, convert to new uid, and check in new list.
     badlist = []
     for ind, rw in olddata.items():
         olduid = rw['uid'] if indcol != 'etid' else rw['etid']
         try:
             newuid = newdata[ind]['uid'] if indcol != 'etid' else newdata[ind]['etid']
         except KeyError:
-            print("\t\tuid {} not found in {}".format(ind, tbl))
+            print("\t\t{} {} not found in {}".format(indcol, ind, tbl))
             continue
 
         if olduid == 0 and newuid == 1:
@@ -181,17 +184,19 @@ def check_og_membership(site):
     tbl = 'og_membership'
     newrows = getallrows(db, tbl)
     newrows = rowstodict(newrows, 'id')
-    sitenm = site if site != 'audio_video' else 'av'
-    olddb = "{}_old_tables".format(sitenm)
+    olddb = "{}_{}_old_tables".format(site, ENVSTR)
     oldrows = getallrows(olddb, tbl)
     oldrows = rowstodict(oldrows, 'id')
     for ogmemid, row in newrows.items():
         if row['entity_type'] == 'user':
             guid = row['etid']  # new global user id
-            old_site_uid = oldrows[ogmemid]['etid']
-            corresps = getcorresps(guid)
-            if corresps['{}_uid'.format(site)] != old_site_uid:
-                print("\t\tUID not properly updated for row {} in og_membership".format(ogmemid))
+            if ogmemid in oldrows:
+                old_site_uid = oldrows[ogmemid]['etid']
+                corresps = getcorresps(guid)
+                if corresps['{}_uid'.format(site)] != old_site_uid:
+                    print("\t\tUID not properly updated for row {} in og_membership".format(ogmemid))
+            else:
+                print("\t\tCould not find ogmem id {} in old data".format(ogmemid))
 
 
 if __name__ == '__main__':

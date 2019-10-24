@@ -175,6 +175,8 @@ def truncate_all_tables_to_repopulate(site):
 
 
 def do_all_updates(sitelist=SITES):
+    if isinstance(sitelist, str):
+        sitelist = sitelist.split(',')
     for asite in sitelist:
         print("Doing {}".format(asite))
         db = "{}{}".format(asite, ENV)
@@ -192,7 +194,6 @@ def do_all_updates(sitelist=SITES):
 
 
 if __name__ == "__main__":
-    do_all_updates(['audio_video'])
-    # update_uids_in_table('images', 'shanti_images', 'siid', 'uid')
+    do_all_updates('images')
     print("Done")
 
