@@ -194,6 +194,6 @@ def do_all_updates(sitelist=SITES):
 
 
 if __name__ == "__main__":
-    do_all_updates('images')
+    do_all_updates()
     print("Done")
 
