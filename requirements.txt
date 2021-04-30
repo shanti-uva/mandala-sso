@@ -169,7 +169,7 @@ pyzmq==18.0.0
 QtPy==1.7.1
 rawpy==0.13.1
 requests==2.22.0
-rsa==4.0
+rsa==4.7
 ruamel-yaml==0.15.46
 scipy==1.2.1
 Send2Trash==1.5.0
